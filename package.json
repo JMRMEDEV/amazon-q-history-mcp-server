@@ -1,0 +1,13 @@
+{
+  "name": "amazon-q-history-mcp-server",
+  "version": "1.0.0",
+  "description": "Amazon Q History Tracking MCP Server",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.4.0"
+  }
+}
