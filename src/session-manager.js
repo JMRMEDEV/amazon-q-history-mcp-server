@@ -15,8 +15,16 @@ export class SessionManager {
 
   async initializeSession(agentName = 'amazon-q') {
     const cwd = process.cwd();
+    
+    // Check for existing session in current directory first
+    const existingSession = await this.getCurrentSession();
+    if (existingSession && existingSession.agent_name === agentName) {
+      this.currentSession = existingSession;
+      return this.currentSession;
+    }
+    
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const hash = createHash('md5').update(cwd + timestamp).digest('hex').slice(0, 8);
+    const hash = createHash('md5').update(cwd + timestamp + agentName).digest('hex').slice(0, 8);
     const sessionId = `${timestamp}_${agentName}_${hash}`;
     
     const sessionDir = join(this.storageDir, sessionId);
@@ -31,37 +39,117 @@ export class SessionManager {
       agent_name: agentName,
       created_at: new Date().toISOString(),
       storage_path: sessionDir,
-      backup_path: backupSessionDir
+      backup_path: backupSessionDir,
+      context_resets: 0 // Track context overflow resets
     };
 
     await this.saveSessionMetadata();
+    await this.initializeSessionFiles();
     return this.currentSession;
+  }
+
+  async initializeSessionFiles() {
+    const session = this.currentSession;
+    
+    // Initialize all required files with empty structures
+    const files = {
+      'history.json': { prompts: [], actions: [], last_activity: session.created_at },
+      'goals.json': { goals: [], requirements: [], constraints: [] },
+      'success-criteria.json': { criteria: [], requirements_met: [], generated_at: session.created_at },
+      'worklog.json': { actions: [], summary: {}, last_updated: session.created_at }
+    };
+
+    for (const [filename, content] of Object.entries(files)) {
+      const filePath = join(session.storage_path, filename);
+      const backupPath = join(session.backup_path, filename);
+      
+      try {
+        await fs.access(filePath);
+      } catch (e) {
+        // File doesn't exist, create it
+        await fs.writeFile(filePath, JSON.stringify(content, null, 2));
+        await fs.writeFile(backupPath, JSON.stringify(content, null, 2));
+      }
+    }
   }
 
   async getCurrentSession() {
     if (this.currentSession) return this.currentSession;
     
-    // Try to find existing session for current directory
+    // Try to find existing session for current directory and agent
     const cwd = process.cwd();
     try {
       const sessions = await fs.readdir(this.storageDir);
+      
+      // Sort sessions by creation time (newest first)
+      const sessionData = [];
       for (const sessionId of sessions) {
         const metadataPath = join(this.storageDir, sessionId, 'metadata.json');
         try {
           const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
           if (metadata.directory === cwd) {
-            this.currentSession = metadata;
-            return this.currentSession;
+            sessionData.push({ id: sessionId, metadata });
           }
         } catch (e) {
           continue;
         }
+      }
+      
+      if (sessionData.length > 0) {
+        // Return the most recent session for this directory
+        sessionData.sort((a, b) => new Date(b.metadata.created_at) - new Date(a.metadata.created_at));
+        this.currentSession = sessionData[0].metadata;
+        return this.currentSession;
       }
     } catch (e) {
       // Storage directory doesn't exist yet
     }
     
     return null;
+  }
+
+  async handleContextOverflow(agentName) {
+    // When Q context overflows and resets, continue with same session but increment reset counter
+    const session = await this.getCurrentSession();
+    if (session) {
+      session.context_resets = (session.context_resets || 0) + 1;
+      session.last_context_reset = new Date().toISOString();
+      
+      // Log the context reset event
+      await this.logContextReset();
+      await this.saveSessionMetadata();
+      
+      return session;
+    }
+    
+    // If no session exists, create new one
+    return await this.initializeSession(agentName);
+  }
+
+  async logContextReset() {
+    const session = this.currentSession;
+    const historyPath = join(session.storage_path, 'history.json');
+    const backupHistoryPath = join(session.backup_path, 'history.json');
+    
+    let history = { prompts: [], actions: [] };
+    try {
+      history = JSON.parse(await fs.readFile(historyPath, 'utf8'));
+    } catch (e) {
+      // File doesn't exist yet
+    }
+
+    const resetEntry = {
+      timestamp: new Date().toISOString(),
+      event: 'context_overflow_reset',
+      reset_count: session.context_resets,
+      note: 'Q CLI context was reset due to overflow, continuing same session'
+    };
+
+    history.actions.push(resetEntry);
+    history.last_activity = resetEntry.timestamp;
+
+    await fs.writeFile(historyPath, JSON.stringify(history, null, 2));
+    await fs.writeFile(backupHistoryPath, JSON.stringify(history, null, 2));
   }
 
   async saveSessionMetadata() {
@@ -116,23 +204,27 @@ export class SessionManager {
     try {
       goals = JSON.parse(await fs.readFile(goalsPath, 'utf8'));
     } catch (e) {
-      // File doesn't exist yet
+      // File doesn't exist yet, use empty structure
     }
 
-    // Merge new context
-    goals.goals.push(...extractedContext.goals);
-    goals.requirements.push(...extractedContext.requirements);
-    goals.constraints.push(...extractedContext.constraints);
+    // Only add new context if it contains meaningful data
+    if (extractedContext.goals.length > 0 || extractedContext.requirements.length > 0 || extractedContext.constraints.length > 0) {
+      // Merge new context
+      goals.goals.push(...extractedContext.goals);
+      goals.requirements.push(...extractedContext.requirements);
+      goals.constraints.push(...extractedContext.constraints);
 
-    // Remove duplicates
-    goals.goals = [...new Set(goals.goals)];
-    goals.requirements = [...new Set(goals.requirements)];
-    goals.constraints = [...new Set(goals.constraints)];
+      // Remove duplicates
+      goals.goals = [...new Set(goals.goals)];
+      goals.requirements = [...new Set(goals.requirements)];
+      goals.constraints = [...new Set(goals.constraints)];
+    }
 
+    // Always write files, even if empty
     await fs.writeFile(goalsPath, JSON.stringify(goals, null, 2));
     await fs.writeFile(join(session.backup_path, 'goals.json'), JSON.stringify(goals, null, 2));
 
-    // Generate success criteria
+    // Generate success criteria (always create file)
     const criteria = this.generateSuccessCriteria(goals);
     await fs.writeFile(criteriaPath, JSON.stringify(criteria, null, 2));
     await fs.writeFile(join(session.backup_path, 'success-criteria.json'), JSON.stringify(criteria, null, 2));

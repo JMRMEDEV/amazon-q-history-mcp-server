@@ -123,6 +123,129 @@ All files are automatically backed up to `/tmp/amazon-q-history/` for recovery.
 
 Example: `2024-10-13T13-01-17_amazon-q-developer_abc12345`
 
+## Preset Agent Configuration
+
+Ready-to-use agent configuration with Amazon Q History integration and automatic session tracking.
+
+### Available Preset
+
+#### basic-dev-agent.json
+- **Purpose**: General development work
+- **Features**: Session tracking, automatic prompt logging
+- **MCP Servers**: Amazon Q History only
+- **Best for**: Simple development tasks, learning, experimentation
+
+### Usage Instructions
+
+#### 1. Copy Preset Configuration
+```bash
+# Copy preset to your Q CLI agents directory
+cp /home/jmrmedev/mcp-servers/amazon-q-history/preset-agents/basic-dev-agent.json ~/.aws/amazonq/cli-agents/
+
+# Or copy to project-specific location
+cp /home/jmrmedev/mcp-servers/amazon-q-history/preset-agents/basic-dev-agent.json /path/to/project/.amazonq/cli-agents/
+```
+
+#### 2. Customize Configuration
+Edit the copied file to adjust:
+- **cwd**: Set to your project directory
+- **Agent name**: Update to match your use case
+- **MCP server paths**: Verify paths are correct for your system
+- **Additional tools**: Add project-specific tools as needed
+
+#### 3. Start Using
+```bash
+# Use the agent
+q chat --agent your-agent-name
+
+# The agent will automatically:
+# - Initialize session tracking
+# - Enable auto-tracking of operations
+# - Log all prompts and tool usage
+# - Maintain context across Q restarts
+```
+
+### Automatic Features
+
+The preset agent includes:
+
+#### Session Management
+- **Auto-initialization**: Session tracking starts automatically
+- **Context preservation**: Goals and progress maintained across conversations
+- **Crash recovery**: Sessions backed up to `/tmp/amazon-q-history/`
+
+#### Hook Integration
+- **userPromptSubmit**: Logs every user prompt with context extraction
+- **Agent instructions**: Uses echo commands to instruct agent behavior
+- **Session cleanup**: Handles session management through agent instructions
+
+#### Progress Tracking
+- **Goal extraction**: Automatically identifies goals from user prompts
+- **Success criteria**: Generates measurable completion criteria
+- **Progress monitoring**: Tracks actions and completion status
+
+### Customization Tips
+
+#### Adding More MCP Servers
+```json
+"mcpServers": {
+    "your-server": {
+        "type": "stdio",
+        "command": "node",
+        "args": ["/path/to/your/server.js"],
+        "timeout": 120000,
+        "disabled": false
+    }
+}
+```
+
+#### Adding Custom Hook Instructions
+```json
+"hooks": {
+    "userPromptSubmit": [
+        {
+            "command": "echo 'Custom instruction for agent behavior'"
+        }
+    ],
+    "agentSpawn": [
+        {
+            "command": "echo 'IMPORTANT: Use track_session and auto_track_operations at session start'"
+        }
+    ]
+}
+```
+
+#### Tool Restrictions
+```json
+"toolsSettings": {
+    "fs_write": {
+        "allowedPaths": ["./**/*.js", "./**/*.json"],
+        "deniedPaths": ["./**/.env*"]
+    }
+}
+```
+
+### Troubleshooting
+
+#### Hook Errors
+If you see "command not found" errors:
+- Ensure Amazon Q History MCP server is running
+- Check that `cwd` is set correctly in the agent configuration
+- Verify MCP server paths are accessible
+- Remember: hooks use shell commands, not MCP tools directly
+
+#### Missing Session Files
+The updated server ensures all files (goals.json, history.json, etc.) are created consistently. If files are missing:
+- Restart the agent to trigger file initialization
+- Check `/tmp/amazon-q-history/` for backup copies
+- Use `restore_backup` tool to recover sessions
+
+#### Context Overflow
+When Q's context resets mid-conversation:
+- The same session continues (no new session created)
+- Context reset is logged in session history
+- All previous goals and progress are preserved
+
 ## Future Improvements
 
 ### Phase 2: Context Management

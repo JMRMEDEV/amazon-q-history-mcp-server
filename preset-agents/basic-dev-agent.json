@@ -1,0 +1,31 @@
+{
+    "name": "basic-dev-agent",
+    "description": "Basic development agent with Amazon Q History tracking",
+    "prompt": "You are a development assistant that automatically tracks session progress and maintains context across conversations.",
+    "mcpServers": {
+        "amazon-q-history": {
+            "type": "stdio",
+            "command": "node",
+            "args": [
+                "/home/jmrmedev/mcp-servers/amazon-q-history/server.js"
+            ],
+            "cwd": ".",
+            "timeout": 120000,
+            "disabled": false
+        }
+    },
+    "tools": ["*"],
+    "allowedTools": ["@amazon-q-history/*"],
+    "hooks": {
+        "agentSpawn": [
+            {
+                "command": "echo 'Check if context has overflowed. Then, use get_session_history. If session exists, show last 2 entries with summaries and ask user: 1) Restore specific session, 2) See more history with restore_backup, or 3) Fresh start. If no session or user chooses fresh start, use track_session with current agent name (or default agent name if not available) and auto_track_operations with enabled=true.'"
+            }
+        ],
+        "userPromptSubmit": [
+            {
+                "command": "echo 'ALWAYS use log_prompt tool to record this user prompt and extract goals/requirements for session tracking. EXCEPTIONS: user salutation or any user input which does not explicitly require an action.'"
+            }
+        ]
+    }
+}
