@@ -53,7 +53,7 @@ export class SessionManager {
     
     // Initialize all required files with empty structures
     const files = {
-      'history.json': { prompts: [], actions: [], last_activity: session.created_at },
+      'history.json': { prompts: [], last_activity: session.created_at },
       'goals.json': { goals: [], requirements: [], constraints: [] },
       'success-criteria.json': { criteria: [], requirements_met: [], generated_at: session.created_at },
       'worklog.json': { actions: [], summary: {}, last_updated: session.created_at }
@@ -131,7 +131,7 @@ export class SessionManager {
     const historyPath = join(session.storage_path, 'history.json');
     const backupHistoryPath = join(session.backup_path, 'history.json');
     
-    let history = { prompts: [], actions: [] };
+    let history = { prompts: [] };
     try {
       history = JSON.parse(await fs.readFile(historyPath, 'utf8'));
     } catch (e) {
@@ -145,7 +145,7 @@ export class SessionManager {
       note: 'Q CLI context was reset due to overflow, continuing same session'
     };
 
-    history.actions.push(resetEntry);
+    history.prompts.push(resetEntry);
     history.last_activity = resetEntry.timestamp;
 
     await fs.writeFile(historyPath, JSON.stringify(history, null, 2));
@@ -169,7 +169,7 @@ export class SessionManager {
       const historyPath = join(session.storage_path, 'history.json');
       const backupHistoryPath = join(session.backup_path, 'history.json');
       
-      let history = { prompts: [], actions: [] };
+      let history = { prompts: [] };
       try {
         history = JSON.parse(await fs.readFile(historyPath, 'utf8'));
       } catch (e) {
@@ -253,8 +253,93 @@ export class SessionManager {
     try {
       return JSON.parse(await fs.readFile(historyPath, 'utf8'));
     } catch (e) {
-      return { prompts: [], actions: [], last_activity: session.created_at };
+      return { prompts: [], last_activity: session.created_at };
     }
+  }
+
+  async updateSuccessCriteria() {
+    const session = await this.getCurrentSession();
+    const criteriaPath = join(session.storage_path, 'success-criteria.json');
+    const worklogPath = join(session.storage_path, 'worklog.json');
+    
+    try {
+      const criteria = JSON.parse(await fs.readFile(criteriaPath, 'utf8'));
+      const worklog = JSON.parse(await fs.readFile(worklogPath, 'utf8'));
+      
+      let updated = false;
+      
+      // Update criteria based on worklog actions
+      for (const criterion of criteria.criteria) {
+        if (!criterion.completed) {
+          const isCompleted = this.checkCriterionCompletion(criterion.description, worklog.actions);
+          if (isCompleted) {
+            criterion.completed = true;
+            criterion.completion_notes = `Auto-completed based on worklog analysis`;
+            updated = true;
+          }
+        }
+      }
+      
+      // Update requirements
+      for (const requirement of criteria.requirements_met) {
+        if (!requirement.satisfied) {
+          const isSatisfied = this.checkRequirementSatisfaction(requirement.requirement, worklog.actions);
+          if (isSatisfied) {
+            requirement.satisfied = true;
+            requirement.validation_notes = `Auto-satisfied based on worklog analysis`;
+            updated = true;
+          }
+        }
+      }
+      
+      if (updated) {
+        await fs.writeFile(criteriaPath, JSON.stringify(criteria, null, 2));
+        await fs.writeFile(join(session.backup_path, 'success-criteria.json'), JSON.stringify(criteria, null, 2));
+      }
+      
+    } catch (e) {
+      // Silently handle errors
+    }
+  }
+
+  checkCriterionCompletion(description, actions) {
+    const desc = description.toLowerCase();
+    
+    // Check for file/directory operations mentioned in the criterion
+    const fileMatches = desc.match(/\/[\w\-\/\.]+/g) || [];
+    for (const filePath of fileMatches) {
+      const hasFileAction = actions.some(action => 
+        action.files_changed?.some(file => file.includes(filePath.replace(/^\//, ''))) ||
+        action.action.toLowerCase().includes(filePath)
+      );
+      if (hasFileAction) return true;
+    }
+    
+    // Check for action keywords
+    const actionKeywords = ['create', 'move', 'modify', 'delete', 'update', 'implement', 'add'];
+    for (const keyword of actionKeywords) {
+      if (desc.includes(keyword)) {
+        const hasMatchingAction = actions.some(action => 
+          action.action.toLowerCase().includes(keyword) && action.status === 'success'
+        );
+        if (hasMatchingAction) return true;
+      }
+    }
+    
+    return false;
+  }
+
+  checkRequirementSatisfaction(requirement, actions) {
+    const req = requirement.toLowerCase();
+    
+    // Simple keyword matching for requirements
+    const keywords = req.split(' ').filter(word => word.length > 3);
+    const matchingActions = actions.filter(action => 
+      keywords.some(keyword => action.action.toLowerCase().includes(keyword)) &&
+      action.status === 'success'
+    );
+    
+    return matchingActions.length >= 2; // Require multiple matching actions
   }
 
   async checkProgress() {
@@ -273,6 +358,79 @@ export class SessionManager {
       };
     } catch (e) {
       return { completed: [], remaining: [], completion_percentage: 0 };
+    }
+  }
+
+  async getRecentContext(promptCount = 5, actionCount = 10) {
+    const session = await this.getCurrentSession();
+    const historyPath = join(session.storage_path, 'history.json');
+    const worklogPath = join(session.storage_path, 'worklog.json');
+    
+    let recentPrompts = [];
+    let recentActions = [];
+    let contextSummary = 'No recent activity';
+    
+    try {
+      // Get recent prompts (bottom-to-top)
+      const history = JSON.parse(await fs.readFile(historyPath, 'utf8'));
+      if (history.prompts && history.prompts.length > 0) {
+        recentPrompts = history.prompts.slice(-promptCount).reverse();
+        contextSummary = recentPrompts[0]?.prompt?.substring(0, 100) + '...' || contextSummary;
+      }
+    } catch (e) {
+      // File doesn't exist or is empty
+    }
+    
+    try {
+      // Get recent actions (bottom-to-top)
+      const worklog = JSON.parse(await fs.readFile(worklogPath, 'utf8'));
+      if (worklog.actions && worklog.actions.length > 0) {
+        recentActions = worklog.actions.slice(-actionCount).reverse();
+      }
+    } catch (e) {
+      // File doesn't exist or is empty
+    }
+    
+    return {
+      session_id: session.id,
+      recent_prompts: recentPrompts.map(p => ({
+        timestamp: p.timestamp,
+        prompt: p.prompt,
+        goals_extracted: p.extracted_context?.goals?.length || 0
+      })),
+      recent_actions: recentActions.map(a => ({
+        timestamp: a.timestamp,
+        action: a.action,
+        files_changed: a.files_changed || [],
+        status: a.status
+      })),
+      context_summary: contextSummary,
+      total_prompts: recentPrompts.length,
+      total_actions: recentActions.length,
+      last_activity: recentActions[0]?.timestamp || recentPrompts[0]?.timestamp || session.created_at
+    };
+  }
+
+  async markCriteriaComplete(criteriaIndex, notes) {
+    const session = await this.getCurrentSession();
+    const criteriaPath = join(session.storage_path, 'success-criteria.json');
+    
+    try {
+      const criteria = JSON.parse(await fs.readFile(criteriaPath, 'utf8'));
+      
+      if (criteriaIndex < 0 || criteriaIndex >= criteria.criteria.length) {
+        return `Invalid criteria index. Available indices: 0-${criteria.criteria.length - 1}`;
+      }
+      
+      criteria.criteria[criteriaIndex].completed = true;
+      criteria.criteria[criteriaIndex].completion_notes = notes || 'Manually marked complete';
+      
+      await fs.writeFile(criteriaPath, JSON.stringify(criteria, null, 2));
+      await fs.writeFile(join(session.backup_path, 'success-criteria.json'), JSON.stringify(criteria, null, 2));
+      
+      return `Marked criteria ${criteriaIndex} as complete: "${criteria.criteria[criteriaIndex].description}"`;
+    } catch (e) {
+      return `Error updating criteria: ${e.message}`;
     }
   }
 

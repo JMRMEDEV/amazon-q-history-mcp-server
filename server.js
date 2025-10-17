@@ -26,6 +26,7 @@ class AmazonQHistoryServer {
     this.sessionManager = new SessionManager();
     this.contextExtractor = new ContextExtractor();
     this.worklogTracker = new WorklogTracker();
+    this.worklogTracker.setSessionManager(this.sessionManager);
     this.fileWatcher = null;
     this.autoTrackingEnabled = false;
     this.watchedFiles = new Set();
@@ -135,6 +136,29 @@ class AmazonQHistoryServer {
             },
             required: ['hook_event_name']
           }
+        },
+        {
+          name: 'mark_criteria_complete',
+          description: 'Manually mark success criteria as complete',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              criteria_index: { type: 'number', description: 'Index of criteria to mark complete (0-based)' },
+              completion_notes: { type: 'string', description: 'Notes about completion' }
+            },
+            required: ['criteria_index']
+          }
+        },
+        {
+          name: 'get_recent_context',
+          description: 'Get recent prompts and actions for context (avoids overflow with large sessions)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              prompt_count: { type: 'number', description: 'Number of recent prompts to retrieve (default: 5)', default: 5 },
+              action_count: { type: 'number', description: 'Number of recent actions to retrieve (default: 10)', default: 10 }
+            }
+          }
         }
       ]
     }));
@@ -162,6 +186,10 @@ class AmazonQHistoryServer {
             return await this.handleAutoTrackOperations(args);
           case 'process_hook':
             return await this.handleProcessHook(args);
+          case 'mark_criteria_complete':
+            return await this.handleMarkCriteriaComplete(args);
+          case 'get_recent_context':
+            return await this.handleGetRecentContext(args);
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
@@ -229,12 +257,13 @@ class AmazonQHistoryServer {
     }
 
     const history = await this.sessionManager.getSessionHistory();
+    const worklog = await this.worklogTracker.getWorklog();
     const summary = await this.sessionManager.getSessionSummary(session.storage_path);
     
     return {
       content: [{
         type: 'text',
-        text: `Session: ${session.id}\nSummary: ${summary}\nPrompts: ${history.prompts.length}\nActions: ${history.actions.length}\nLast activity: ${history.last_activity}`
+        text: `Session: ${session.id}\nSummary: ${summary}\nPrompts: ${history.prompts.length}\nActions: ${worklog.actions.length}\nLast activity: ${worklog.last_updated || history.last_activity}`
       }]
     };
   }
@@ -481,6 +510,40 @@ class AmazonQHistoryServer {
     } catch (error) {
       return { content: [{ type: 'text', text: `Hook processing error: ${error.message}` }] };
     }
+  }
+
+  async handleGetRecentContext(args) {
+    const session = await this.sessionManager.getCurrentSession();
+    if (!session) {
+      throw new Error('No active session found.');
+    }
+
+    const context = await this.sessionManager.getRecentContext(
+      args.prompt_count || 5,
+      args.action_count || 10
+    );
+    
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify(context, null, 2)
+      }]
+    };
+  }
+
+  async handleMarkCriteriaComplete(args) {
+    const session = await this.sessionManager.getCurrentSession();
+    if (!session) {
+      throw new Error('No active session found.');
+    }
+
+    const result = await this.sessionManager.markCriteriaComplete(args.criteria_index, args.completion_notes);
+    return {
+      content: [{
+        type: 'text',
+        text: result
+      }]
+    };
   }
 
   extractFilesFromTool(tool_name, tool_input, tool_response) {

@@ -44,34 +44,16 @@ export class WorklogTracker {
       await fs.writeFile(worklogPath, JSON.stringify(worklog, null, 2));
       await fs.writeFile(backupWorklogPath, JSON.stringify(worklog, null, 2));
 
-      // Update session history
-      await this.updateSessionHistory(actionEntry);
+      // Update success criteria based on new action
+      if (this.sessionManager) {
+        await this.sessionManager.updateSuccessCriteria();
+      }
     } finally {
       this.isLogging = false;
     }
   }
 
-  async updateSessionHistory(actionEntry) {
-    // Skip if already updating to prevent recursion
-    if (this.sessionManager && this.sessionManager.isUpdating) return;
 
-    const session = await this.getSession();
-    const historyPath = join(session.storage_path, 'history.json');
-    const backupHistoryPath = join(session.backup_path, 'history.json');
-    
-    let history = { prompts: [], actions: [] };
-    try {
-      history = JSON.parse(await fs.readFile(historyPath, 'utf8'));
-    } catch (e) {
-      // File doesn't exist yet
-    }
-
-    history.actions.push(actionEntry);
-    history.last_activity = actionEntry.timestamp;
-
-    await fs.writeFile(historyPath, JSON.stringify(history, null, 2));
-    await fs.writeFile(backupHistoryPath, JSON.stringify(history, null, 2));
-  }
 
   generateSummary(actions) {
     const total = actions.length;

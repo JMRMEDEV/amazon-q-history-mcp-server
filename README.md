@@ -61,6 +61,12 @@ process_hook --hook_event_name "stop"
 # See current progress and session data
 check_progress
 get_session_history
+
+# Get recent context without overwhelming Q (recommended for large sessions)
+get_recent_context
+
+# Get more context if needed (incremental approach)
+get_recent_context --prompt_count 10 --action_count 20
 ```
 
 ### Restore from Backup
@@ -88,6 +94,7 @@ clear_session_history --confirm true
 - `track_session` - Initialize/resume sessions
 - `log_prompt` - Record prompts with context extraction  
 - `get_session_history` - Retrieve session data with summaries
+- `get_recent_context` - Get recent prompts/actions (context-safe for large sessions)
 - `check_progress` - Monitor goal completion
 - `clear_session_history` - Clean up with confirmation
 - `restore_backup` - Recover from `/tmp` backup
@@ -97,20 +104,50 @@ clear_session_history --confirm true
 - `auto_track_operations` - File system monitoring (experimental)
 - `process_hook` - Q CLI hook event processing (advanced)
 
+### Progress Management
+- `mark_criteria_complete` - Manually mark success criteria as complete
+
 ### Recovery & Backup
 - Automatic backup to `/tmp/amazon-q-history/`
 - Session summaries for easy identification
 - Complete crash recovery capabilities
 
+## Context Management
+
+### Avoiding Context Overflow
+Large sessions with thousands of actions can overwhelm Q's context window. Use `get_recent_context` for safe context retrieval:
+
+```bash
+# Default: Last 5 prompts + 10 actions (recommended)
+get_recent_context
+
+# Need more context? Increase incrementally
+get_recent_context --prompt_count 8 --action_count 15
+
+# For detailed investigation (use carefully)
+get_recent_context --prompt_count 15 --action_count 30
+```
+
+### Context Strategy
+- **Start small**: Use default 5 prompts + 10 actions
+- **Expand gradually**: Increase counts only if more context is needed
+- **Bottom-to-top reading**: Always gets most recent entries first
+- **Fixed size**: Never grows beyond specified limits
+
+### When to Use Each Tool
+- `get_recent_context` - **Recommended** for active work and large sessions
+- `get_session_history` - Basic session stats and summaries only
+- `check_progress` - Goal completion status
+
 ## File Structure
 
 ```
 storage/sessions/2024-10-13T13-01-17_amazon-q-developer_abc12345/
-├── metadata.json          # Session info
-├── history.json           # Prompts and actions log
+├── metadata.json          # Session info and configuration
+├── history.json           # User prompts and session events (context resets)
 ├── goals.json            # Extracted goals and requirements
 ├── success-criteria.json # Generated success criteria
-└── worklog.json          # Detailed action tracking
+└── worklog.json          # Detailed action tracking and file changes
 ```
 
 ## Backup Location

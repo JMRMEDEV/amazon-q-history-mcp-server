@@ -20,6 +20,9 @@
         "agentSpawn": [
             {
                 "command": "echo 'Check if context has overflowed. Then, use get_session_history. If session exists, show last 2 entries with summaries and ask user: 1) Restore specific session, 2) See more history with restore_backup, or 3) Fresh start. If no session or user chooses fresh start, use track_session with current agent name (or default agent name if not available) and auto_track_operations with enabled=true.'"
+            },
+            {
+                "command": "echo 'CONTEXT MANAGEMENT: When session is restored or active, ALWAYS use get_recent_context (default 5 prompts, 10 actions) to retrieve safe context. If more context needed, incrementally increase: get_recent_context --prompt_count 8 --action_count 15, then --prompt_count 10 --action_count 20 if still insufficient. Never use get_session_history for large sessions as it causes context overflow.'"
             }
         ],
         "userPromptSubmit": [
