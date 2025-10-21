@@ -48,8 +48,18 @@ export class SessionManager {
     return this.currentSession;
   }
 
+  async ensureBackupDir() {
+    await fs.mkdir(this.currentSession.backup_path, { recursive: true });
+  }
+
+  async ensureStorageDir() {
+    await fs.mkdir(this.currentSession.storage_path, { recursive: true });
+  }
+
   async initializeSessionFiles() {
     const session = this.currentSession;
+    await this.ensureStorageDir();
+    await this.ensureBackupDir();
     
     // Initialize all required files with empty structures
     const files = {
@@ -62,13 +72,14 @@ export class SessionManager {
     for (const [filename, content] of Object.entries(files)) {
       const filePath = join(session.storage_path, filename);
       const backupPath = join(session.backup_path, filename);
+      const contentStr = JSON.stringify(content, null, 2);
       
       try {
         await fs.access(filePath);
       } catch (e) {
         // File doesn't exist, create it
-        await fs.writeFile(filePath, JSON.stringify(content, null, 2));
-        await fs.writeFile(backupPath, JSON.stringify(content, null, 2));
+        await fs.writeFile(filePath, contentStr);
+        await fs.writeFile(backupPath, contentStr);
       }
     }
   }
@@ -131,6 +142,8 @@ export class SessionManager {
     const historyPath = join(session.storage_path, 'history.json');
     const backupHistoryPath = join(session.backup_path, 'history.json');
     
+    await this.ensureBackupDir();
+    
     let history = { prompts: [] };
     try {
       history = JSON.parse(await fs.readFile(historyPath, 'utf8'));
@@ -148,16 +161,20 @@ export class SessionManager {
     history.prompts.push(resetEntry);
     history.last_activity = resetEntry.timestamp;
 
-    await fs.writeFile(historyPath, JSON.stringify(history, null, 2));
-    await fs.writeFile(backupHistoryPath, JSON.stringify(history, null, 2));
+    const historyContent = JSON.stringify(history, null, 2);
+    await fs.writeFile(historyPath, historyContent);
+    await fs.writeFile(backupHistoryPath, historyContent);
   }
 
   async saveSessionMetadata() {
     const metadataPath = join(this.currentSession.storage_path, 'metadata.json');
     const backupMetadataPath = join(this.currentSession.backup_path, 'metadata.json');
     
-    await fs.writeFile(metadataPath, JSON.stringify(this.currentSession, null, 2));
-    await fs.writeFile(backupMetadataPath, JSON.stringify(this.currentSession, null, 2));
+    await this.ensureStorageDir();
+    const metadataContent = JSON.stringify(this.currentSession, null, 2);
+    await fs.writeFile(metadataPath, metadataContent);
+    await this.ensureBackupDir();
+    await fs.writeFile(backupMetadataPath, metadataContent);
   }
 
   async logPrompt(prompt, extractedContext) {
@@ -168,6 +185,9 @@ export class SessionManager {
       const session = await this.getCurrentSession();
       const historyPath = join(session.storage_path, 'history.json');
       const backupHistoryPath = join(session.backup_path, 'history.json');
+      
+      await this.ensureStorageDir();
+      await this.ensureBackupDir();
       
       let history = { prompts: [] };
       try {
@@ -185,8 +205,9 @@ export class SessionManager {
       history.prompts.push(promptEntry);
       history.last_activity = promptEntry.timestamp;
 
-      await fs.writeFile(historyPath, JSON.stringify(history, null, 2));
-      await fs.writeFile(backupHistoryPath, JSON.stringify(history, null, 2));
+      const historyContent = JSON.stringify(history, null, 2);
+      await fs.writeFile(historyPath, historyContent);
+      await fs.writeFile(backupHistoryPath, historyContent);
 
       // Update goals and success criteria
       await this.updateGoalsAndCriteria(extractedContext);
@@ -199,6 +220,9 @@ export class SessionManager {
     const session = await this.getCurrentSession();
     const goalsPath = join(session.storage_path, 'goals.json');
     const criteriaPath = join(session.storage_path, 'success-criteria.json');
+    
+    await this.ensureStorageDir();
+    await this.ensureBackupDir();
     
     let goals = { goals: [], requirements: [], constraints: [] };
     try {
@@ -221,13 +245,15 @@ export class SessionManager {
     }
 
     // Always write files, even if empty
-    await fs.writeFile(goalsPath, JSON.stringify(goals, null, 2));
-    await fs.writeFile(join(session.backup_path, 'goals.json'), JSON.stringify(goals, null, 2));
+    const goalsContent = JSON.stringify(goals, null, 2);
+    await fs.writeFile(goalsPath, goalsContent);
+    await fs.writeFile(join(session.backup_path, 'goals.json'), goalsContent);
 
     // Generate success criteria (always create file)
     const criteria = this.generateSuccessCriteria(goals);
-    await fs.writeFile(criteriaPath, JSON.stringify(criteria, null, 2));
-    await fs.writeFile(join(session.backup_path, 'success-criteria.json'), JSON.stringify(criteria, null, 2));
+    const criteriaContent = JSON.stringify(criteria, null, 2);
+    await fs.writeFile(criteriaPath, criteriaContent);
+    await fs.writeFile(join(session.backup_path, 'success-criteria.json'), criteriaContent);
   }
 
   generateSuccessCriteria(goals) {
@@ -262,6 +288,8 @@ export class SessionManager {
     const criteriaPath = join(session.storage_path, 'success-criteria.json');
     const worklogPath = join(session.storage_path, 'worklog.json');
     
+    await this.ensureBackupDir();
+    
     try {
       const criteria = JSON.parse(await fs.readFile(criteriaPath, 'utf8'));
       const worklog = JSON.parse(await fs.readFile(worklogPath, 'utf8'));
@@ -293,8 +321,9 @@ export class SessionManager {
       }
       
       if (updated) {
-        await fs.writeFile(criteriaPath, JSON.stringify(criteria, null, 2));
-        await fs.writeFile(join(session.backup_path, 'success-criteria.json'), JSON.stringify(criteria, null, 2));
+        const criteriaContent = JSON.stringify(criteria, null, 2);
+        await fs.writeFile(criteriaPath, criteriaContent);
+        await fs.writeFile(join(session.backup_path, 'success-criteria.json'), criteriaContent);
       }
       
     } catch (e) {
@@ -415,6 +444,8 @@ export class SessionManager {
     const session = await this.getCurrentSession();
     const criteriaPath = join(session.storage_path, 'success-criteria.json');
     
+    await this.ensureBackupDir();
+    
     try {
       const criteria = JSON.parse(await fs.readFile(criteriaPath, 'utf8'));
       
@@ -425,8 +456,9 @@ export class SessionManager {
       criteria.criteria[criteriaIndex].completed = true;
       criteria.criteria[criteriaIndex].completion_notes = notes || 'Manually marked complete';
       
-      await fs.writeFile(criteriaPath, JSON.stringify(criteria, null, 2));
-      await fs.writeFile(join(session.backup_path, 'success-criteria.json'), JSON.stringify(criteria, null, 2));
+      const criteriaContent = JSON.stringify(criteria, null, 2);
+      await fs.writeFile(criteriaPath, criteriaContent);
+      await fs.writeFile(join(session.backup_path, 'success-criteria.json'), criteriaContent);
       
       return `Marked criteria ${criteriaIndex} as complete: "${criteria.criteria[criteriaIndex].description}"`;
     } catch (e) {

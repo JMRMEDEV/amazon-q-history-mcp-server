@@ -21,6 +21,10 @@ export class WorklogTracker {
       const worklogPath = join(session.storage_path, 'worklog.json');
       const backupWorklogPath = join(session.backup_path, 'worklog.json');
       
+      // Ensure both directories exist
+      await fs.mkdir(session.storage_path, { recursive: true });
+      await fs.mkdir(session.backup_path, { recursive: true });
+      
       let worklog = { actions: [], summary: {} };
       try {
         worklog = JSON.parse(await fs.readFile(worklogPath, 'utf8'));
@@ -41,8 +45,9 @@ export class WorklogTracker {
       worklog.last_updated = actionData.timestamp;
       worklog.summary = this.generateSummary(worklog.actions);
 
-      await fs.writeFile(worklogPath, JSON.stringify(worklog, null, 2));
-      await fs.writeFile(backupWorklogPath, JSON.stringify(worklog, null, 2));
+      const worklogContent = JSON.stringify(worklog, null, 2);
+      await fs.writeFile(worklogPath, worklogContent);
+      await fs.writeFile(backupWorklogPath, worklogContent);
 
       // Update success criteria based on new action
       if (this.sessionManager) {
