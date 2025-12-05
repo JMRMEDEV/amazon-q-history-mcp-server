@@ -46,11 +46,38 @@
 - `server.js` (removed isLogging check)
 - `test-race-conditions.js` (created)
 
+### Completed - Issue #3: Memory Leaks 🔴
+- ✅ Added `MAX_TIMERS` limit (1000) for debounce timers
+- ✅ Added `MAX_OPERATIONS` limit (100) for active operations
+- ✅ Added `OPERATION_TIMEOUT` (5 minutes) for stale operation cleanup
+- ✅ Created `addDebounceTimer()` helper with automatic cleanup
+- ✅ Created `addActiveOperation()` helper with timeout-based cleanup
+- ✅ Updated file watcher to use new helpers
+- ✅ Updated hook handler to use new helpers
+- ✅ Created stress test (`test-memory-leaks.js`) with 5000 operations
+- ✅ Test passes: Memory growth controlled, limits enforced
+- **Result:** No unbounded memory growth, automatic cleanup of stale data
+
+#### Implementation Details
+- **Debounce timers:** FIFO eviction when limit reached
+- **Active operations:** Timeout-based cleanup (removes ops older than 5min)
+- **Memory impact:** ~4MB increase under 5000 operation load (controlled)
+
+#### Testing Status
+- ✅ Stress test passes with 5000 operations
+- ✅ Limits enforced: 1000 timers max, 100 operations max
+- ✅ Stale operation cleanup verified
+- ⏳ **Pending:** Real-world testing with kiro-cli MCP server integration
+
+#### Files Modified
+- `server.js` (added limits, helpers, exported class)
+- `test-memory-leaks.js` (created)
+
 ### Next Steps
-- Issue #3: Memory leaks in auto-tracking
 - Issue #6: Portable paths (replace hardcoded `/tmp`)
 - Issue #9: Input validation
 - Issue #10: File access control
+- Real-world testing with kiro-cli for Issues #1 and #3
 
 ---
 

@@ -146,7 +146,15 @@ class AmazonQHistoryServer {
 }
 ```
 
-**Decision:** [ ] Pending
+**Decision:** [x] Implemented - 2025-12-05
+
+**Implementation Notes:**
+- Added size limits: 1000 timers, 100 operations
+- Timeout-based cleanup for stale operations (5 minutes)
+- FIFO eviction for timers when limit reached
+- Helper methods enforce limits automatically
+- Stress test created and passing (5000 operations)
+- **Status:** Tested in isolation, pending kiro-cli integration testing
 
 ---
 

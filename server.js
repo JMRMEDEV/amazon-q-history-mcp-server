@@ -30,8 +30,13 @@ class AmazonQHistoryServer {
     this.fileWatcher = null;
     this.autoTrackingEnabled = false;
     this.watchedFiles = new Set();
-    this.activeOperations = new Map(); // Track ongoing operations
-    this.debounceTimers = new Map(); // Debounce file changes
+    this.activeOperations = new Map();
+    this.debounceTimers = new Map();
+    
+    // Memory leak protection
+    this.MAX_TIMERS = 1000;
+    this.MAX_OPERATIONS = 100;
+    this.OPERATION_TIMEOUT = 300000; // 5 minutes
 
     this.setupToolHandlers();
     
@@ -425,7 +430,7 @@ class AmazonQHistoryServer {
         }
       }, 500); // 500ms debounce
 
-      this.debounceTimers.set(debounceKey, debounceTimer);
+      this.addDebounceTimer(debounceKey, debounceTimer);
     });
   }
 
@@ -444,6 +449,35 @@ class AmazonQHistoryServer {
     this.debounceTimers.clear();
   }
 
+  addDebounceTimer(key, timer) {
+    // Cleanup old timers if limit reached
+    if (this.debounceTimers.size >= this.MAX_TIMERS) {
+      const oldestKey = this.debounceTimers.keys().next().value;
+      clearTimeout(this.debounceTimers.get(oldestKey));
+      this.debounceTimers.delete(oldestKey);
+    }
+    this.debounceTimers.set(key, timer);
+  }
+
+  addActiveOperation(id, operation) {
+    // Cleanup stale operations (older than timeout)
+    const now = Date.now();
+    for (const [opId, op] of this.activeOperations) {
+      const opTime = new Date(op.start_time).getTime();
+      if (now - opTime > this.OPERATION_TIMEOUT) {
+        this.activeOperations.delete(opId);
+      }
+    }
+    
+    // Enforce size limit
+    if (this.activeOperations.size >= this.MAX_OPERATIONS) {
+      const oldestKey = this.activeOperations.keys().next().value;
+      this.activeOperations.delete(oldestKey);
+    }
+    
+    this.activeOperations.set(id, operation);
+  }
+
   async handleProcessHook(args) {
     const session = await this.sessionManager.getCurrentSession();
     if (!session) {
@@ -459,7 +493,7 @@ class AmazonQHistoryServer {
         case 'preToolUse':
           // Track operation start
           const operationId = `${tool_name}_${timestamp}`;
-          this.activeOperations.set(operationId, {
+          this.addActiveOperation(operationId, {
             tool_name,
             tool_input,
             start_time: timestamp,
@@ -579,6 +613,8 @@ class AmazonQHistoryServer {
     console.error('Amazon Q History MCP Server running on stdio');
   }
 }
+
+export { AmazonQHistoryServer };
 
 const server = new AmazonQHistoryServer();
 server.run().catch(console.error);
