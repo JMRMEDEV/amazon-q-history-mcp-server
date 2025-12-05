@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createHash } from 'crypto';
+import os from 'os';
 import { fileQueue } from './file-operation-queue.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -9,7 +10,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export class SessionManager {
   constructor() {
     this.storageDir = join(__dirname, '../storage/sessions');
-    this.backupDir = '/tmp/amazon-q-history';
+    this.backupDir = join(os.tmpdir(), 'amazon-q-history');
     this.currentSession = null;
   }
 

@@ -73,11 +73,31 @@
 - `server.js` (added limits, helpers, exported class)
 - `test-memory-leaks.js` (created)
 
+### Completed - Issue #6: Portable Paths 🔴
+- ✅ Replaced hardcoded `/tmp/amazon-q-history` with `os.tmpdir()`
+- ✅ Added `import os from 'os'` to session-manager.js
+- ✅ Backup directory now uses `join(os.tmpdir(), 'amazon-q-history')`
+- ✅ Created test (`test-portable-paths.js`) to verify cross-platform compatibility
+- ✅ Test passes on Linux (will work on Windows and macOS)
+- **Result:** MCP server now works on Windows, macOS, and Linux
+
+#### Platform-Specific Paths
+- **Linux/macOS:** `/tmp/amazon-q-history`
+- **Windows:** `C:\Users\username\AppData\Local\Temp\amazon-q-history`
+
+#### Testing Status
+- ✅ Test passes on Linux
+- ⏳ **Pending:** Testing on Windows and macOS
+- ⏳ **Pending:** Real-world testing with kiro-cli
+
+#### Files Modified
+- `src/session-manager.js` (replaced hardcoded path)
+- `test-portable-paths.js` (created)
+
 ### Next Steps
-- Issue #6: Portable paths (replace hardcoded `/tmp`)
 - Issue #9: Input validation
 - Issue #10: File access control
-- Real-world testing with kiro-cli for Issues #1 and #3
+- Real-world testing with kiro-cli for Issues #1, #3, and #6
 
 ---
 

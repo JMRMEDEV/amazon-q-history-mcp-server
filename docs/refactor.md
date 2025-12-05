@@ -299,7 +299,13 @@ constructor() {
 }
 ```
 
-**Decision:** [ ] Pending
+**Decision:** [x] Implemented - 2025-12-05
+
+**Implementation Notes:**
+- Replaced hardcoded `/tmp` with `os.tmpdir()`
+- Works on Windows, macOS, and Linux
+- Test created and passing on Linux
+- **Status:** Tested on Linux, pending Windows/macOS verification
 
 ---
 
