@@ -512,7 +512,15 @@ function validateToolInput(name, args) {
 }
 ```
 
-**Decision:** [ ] Pending
+**Decision:** [x] Implemented - 2025-12-05
+
+**Implementation Notes:**
+- Created input-validator.js with validatePath() and validateToolInput()
+- Blocks 9 sensitive patterns (.env*, .key, .pem, .ssh, .aws, etc.)
+- Length limits: prompts 10k, actions 1k, agent names 100 chars
+- Integrated into all tool handlers
+- 21 test cases passing
+- **Status:** Tested in isolation, pending kiro-cli integration testing
 
 ---
 

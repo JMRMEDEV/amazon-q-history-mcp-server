@@ -6,6 +6,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import { SessionManager } from './src/session-manager.js';
 import { ContextExtractor } from './src/context-extractor.js';
 import { WorklogTracker } from './src/worklog-tracker.js';
+import { validateToolInput } from './src/input-validator.js';
 import { watch } from 'fs';
 import { promises as fs } from 'fs';
 
@@ -172,29 +173,32 @@ class AmazonQHistoryServer {
       const { name, arguments: args } = request.params;
       
       try {
+        // Validate input before processing
+        const validatedArgs = validateToolInput(name, args);
+        
         switch (name) {
           case 'track_session':
-            return await this.handleTrackSession(args);
+            return await this.handleTrackSession(validatedArgs);
           case 'log_prompt':
-            return await this.handleLogPrompt(args);
+            return await this.handleLogPrompt(validatedArgs);
           case 'log_action':
-            return await this.handleLogAction(args);
+            return await this.handleLogAction(validatedArgs);
           case 'get_session_history':
             return await this.handleGetHistory();
           case 'check_progress':
             return await this.handleCheckProgress();
           case 'clear_session_history':
-            return await this.handleClearHistory(args);
+            return await this.handleClearHistory(validatedArgs);
           case 'restore_backup':
-            return await this.handleRestoreBackup(args);
+            return await this.handleRestoreBackup(validatedArgs);
           case 'auto_track_operations':
-            return await this.handleAutoTrackOperations(args);
+            return await this.handleAutoTrackOperations(validatedArgs);
           case 'process_hook':
-            return await this.handleProcessHook(args);
+            return await this.handleProcessHook(validatedArgs);
           case 'mark_criteria_complete':
-            return await this.handleMarkCriteriaComplete(args);
+            return await this.handleMarkCriteriaComplete(validatedArgs);
           case 'get_recent_context':
-            return await this.handleGetRecentContext(args);
+            return await this.handleGetRecentContext(validatedArgs);
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
