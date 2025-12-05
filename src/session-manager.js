@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createHash } from 'crypto';
+import { fileQueue } from './file-operation-queue.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -10,7 +11,6 @@ export class SessionManager {
     this.storageDir = join(__dirname, '../storage/sessions');
     this.backupDir = '/tmp/amazon-q-history';
     this.currentSession = null;
-    this.isUpdating = false; // Prevent recursive updates
   }
 
   async initializeSession(agentName = 'amazon-q') {
@@ -178,10 +178,7 @@ export class SessionManager {
   }
 
   async logPrompt(prompt, extractedContext) {
-    if (this.isUpdating) return;
-    this.isUpdating = true;
-
-    try {
+    return fileQueue.enqueue(async () => {
       const session = await this.getCurrentSession();
       const historyPath = join(session.storage_path, 'history.json');
       const backupHistoryPath = join(session.backup_path, 'history.json');
@@ -211,9 +208,7 @@ export class SessionManager {
 
       // Update goals and success criteria
       await this.updateGoalsAndCriteria(extractedContext);
-    } finally {
-      this.isUpdating = false;
-    }
+    });
   }
 
   async updateGoalsAndCriteria(extractedContext) {

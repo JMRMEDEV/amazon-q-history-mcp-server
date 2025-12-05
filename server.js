@@ -388,9 +388,6 @@ class AmazonQHistoryServer {
 
       const debounceTimer = setTimeout(async () => {
         this.debounceTimers.delete(debounceKey);
-        
-        // Check if worklog is currently being updated
-        if (this.worklogTracker.isLogging) return;
 
         try {
           const isNewFile = !this.watchedFiles.has(filename);

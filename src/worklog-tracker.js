@@ -1,10 +1,10 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
+import { fileQueue } from './file-operation-queue.js';
 
 export class WorklogTracker {
   constructor() {
     this.sessionManager = null; // Will be injected
-    this.isLogging = false; // Prevent recursive logging
   }
 
   setSessionManager(sessionManager) {
@@ -12,11 +12,7 @@ export class WorklogTracker {
   }
 
   async logAction(actionData) {
-    // Prevent recursive logging
-    if (this.isLogging) return;
-    this.isLogging = true;
-
-    try {
+    return fileQueue.enqueue(async () => {
       const session = await this.getSession();
       const worklogPath = join(session.storage_path, 'worklog.json');
       const backupWorklogPath = join(session.backup_path, 'worklog.json');
@@ -53,9 +49,7 @@ export class WorklogTracker {
       if (this.sessionManager) {
         await this.sessionManager.updateSuccessCriteria();
       }
-    } finally {
-      this.isLogging = false;
-    }
+    });
   }
 
 
