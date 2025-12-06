@@ -528,63 +528,61 @@ function validateToolInput(name, args) {
 
 **Issue:** Auto-tracking can monitor any directory. No restrictions on what files can be tracked.
 
-**Proposed Solutions:**
+**Root Cause Analysis:**
+- Auto-tracking feature is overkill - watches every file change
+- Creates performance overhead with file system watchers
+- Generates noise (temp files, build output, OS files)
+- Security risk (could catch sensitive files mid-edit)
+- Complex filtering needed to make it useful
 
-#### Option A: Explicit allowlist
+**Decision:** [x] Replaced with Git Integration - 2025-12-05
+
+**Solution: Remove Auto-Tracking, Add Git Integration**
+
+Instead of watching file changes in real-time, integrate with git to import commit history:
+
 ```javascript
+// NEW TOOL: log_git_commits
 {
-  name: 'auto_track_operations',
+  name: 'log_git_commits',
+  description: 'Import git commit history into session worklog (optional)',
   inputSchema: {
     properties: {
-      allowed_patterns: {
-        type: 'array',
-        items: { type: 'string' },
-        default: ['src/**', 'lib/**', '*.js', '*.json']
-      },
-      denied_patterns: {
-        type: 'array',
-        items: { type: 'string' },
-        default: ['**/.env*', '**/secrets/**', '**/*.key']
-      }
+      since: { type: 'string', default: '1 hour ago' },
+      max_commits: { type: 'number', default: 10 },
+      branch: { type: 'string', default: 'HEAD' }
     }
   }
 }
+
+// Usage
+log_git_commits({ max_commits: 5 })
+log_git_commits({ since: "1 hour ago" })
 ```
 
-#### Option B: Wildcard with warning (Recommended)
-```javascript
-async handleAutoTrackOperations(args) {
-  if (args.watch_directory === '*' || !args.allowed_patterns) {
-    console.warn('⚠️  WARNING: Tracking all files. Sensitive data may be logged.');
-    console.warn('⚠️  Consider using allowed_patterns to restrict tracking.');
-    
-    // Require explicit confirmation
-    if (!args.confirm_unrestricted) {
-      throw new Error('Use confirm_unrestricted: true to track all files');
-    }
-  }
-  
-  // Apply default restrictions even with wildcard
-  const defaultDenied = ['**/.env*', '**/node_modules/**', '**/.git/**'];
-  args.denied_patterns = [...(args.denied_patterns || []), ...defaultDenied];
-}
-```
+**Implementation:**
+- Parse `git log` output with commit hash, message, author, date, files
+- Log each commit as structured action in worklog
+- Include metadata (git_hash, author, source: 'git')
+- Optional feature - only runs when called
+- No file watching overhead
 
-#### Option C: Config file
-```javascript
-// .qhistory.config.json
-{
-  "tracking": {
-    "allowed": ["src/**", "lib/**"],
-    "denied": ["**/.env*", "**/secrets/**"],
-    "warnOnSensitive": true
-  }
-}
-```
+**Changes:**
+- ❌ Remove `auto_track_operations` tool
+- ❌ Remove file watcher code (`startAutoTracking`, `stopAutoTracking`)
+- ❌ Remove `debounceTimers`, `watchedFiles`, `fileWatcher` properties
+- ✅ Add `log_git_commits` tool
+- ✅ Add `parseGitLog()` method
+- ✅ Keep manual `log_action` as primary method
 
-**Recommendation:** Option B + C
+**Benefits:**
+- No performance overhead
+- Clean data (only committed changes)
+- Leverages existing version control
+- No sensitive file risk
+- No complex filtering needed
 
-**Decision:** [ ] Pending
+**Status:** Approved, pending implementation
 
 ---
 

@@ -39,13 +39,16 @@ log_prompt --prompt "I want to create a React app with authentication. It should
 log_action --action "Created React app structure" --files_changed "['src/App.js', 'package.json']" --status "success"
 ```
 
-### Automatic Operation Tracking
+### Git Integration (Optional)
 ```bash
-# Enable file system monitoring (experimental)
-auto_track_operations --enabled true
+# Import recent git commits into worklog
+log_git_commits --max_commits 5
 
-# Disable auto-tracking
-auto_track_operations --enabled false
+# Import commits from last hour
+log_git_commits --since "1 hour ago"
+
+# Import from specific branch
+log_git_commits --branch "feature/auth" --max_commits 10
 ```
 
 ### Hook-Based Operation Tracking
@@ -101,7 +104,7 @@ clear_session_history --confirm true
 
 ### Operation Tracking
 - `log_action` - Manual operation logging (recommended)
-- `auto_track_operations` - File system monitoring (experimental)
+- `log_git_commits` - Import git commit history (optional)
 - `process_hook` - Q CLI hook event processing (advanced)
 
 ### Progress Management
@@ -246,7 +249,7 @@ The preset agent includes:
     ],
     "agentSpawn": [
         {
-            "command": "echo 'IMPORTANT: Use track_session and auto_track_operations at session start'"
+            "command": "echo 'IMPORTANT: Use track_session at session start. Optionally use log_git_commits to import commit history.'"
         }
     ]
 }
@@ -283,6 +286,66 @@ When Q's context resets mid-conversation:
 - Context reset is logged in session history
 - All previous goals and progress are preserved
 
+## Git Integration
+
+The `log_git_commits` tool allows you to import git commit history into your session worklog. This is an optional feature that works alongside manual `log_action` logging.
+
+### Usage
+
+```bash
+# Import last 5 commits
+log_git_commits --max_commits 5
+
+# Import commits from last hour
+log_git_commits --since "1 hour ago"
+
+# Import commits from last day
+log_git_commits --since "24 hours ago" --max_commits 20
+
+# Import from specific branch
+log_git_commits --branch "feature/auth" --max_commits 10
+```
+
+### What Gets Imported
+
+Each commit is logged as an action with:
+- **Action**: "Git commit: {commit message}"
+- **Files changed**: List of files modified in the commit
+- **Timestamp**: Commit date/time
+- **Metadata**: 
+  - `git_hash`: Commit SHA
+  - `author`: Commit author
+  - `source`: "git"
+
+### Example Worklog Entry
+
+```json
+{
+  "action": "Git commit: Add user authentication",
+  "files_changed": ["src/auth.js", "src/middleware/auth.js"],
+  "status": "success",
+  "timestamp": "2025-12-05T19:30:00Z",
+  "metadata": {
+    "git_hash": "a3f2b1c",
+    "author": "John Doe",
+    "source": "git"
+  }
+}
+```
+
+### Requirements
+
+- Git must be installed
+- Must be run in a git repository
+- Commits must exist in the specified range
+
+### When to Use
+
+- **Session start**: Import recent commits to provide context
+- **After major work**: Import commits from your work session
+- **Progress review**: See what was actually committed vs. planned
+- **Team collaboration**: Import commits from other team members
+
 ## Future Improvements
 
 ### Phase 2: Context Management
@@ -291,7 +354,6 @@ When Q's context resets mid-conversation:
 - **Token Counting**: Estimate context size and optimize for model limits
 
 ### Phase 3: Advanced Features
-- **File System Monitoring**: Automatically detect file changes without manual logging
 - **Q CLI Integration**: Direct hooks into Q's command pipeline for seamless tracking
 - **Context Injection**: Automatically provide session context to Q on startup
 - **Smart Resumption**: Detect incomplete sessions and offer to resume

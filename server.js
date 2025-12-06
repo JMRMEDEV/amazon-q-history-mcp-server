@@ -7,8 +7,6 @@ import { SessionManager } from './src/session-manager.js';
 import { ContextExtractor } from './src/context-extractor.js';
 import { WorklogTracker } from './src/worklog-tracker.js';
 import { validateToolInput } from './src/input-validator.js';
-import { watch } from 'fs';
-import { promises as fs } from 'fs';
 
 class AmazonQHistoryServer {
   constructor() {
@@ -28,14 +26,9 @@ class AmazonQHistoryServer {
     this.contextExtractor = new ContextExtractor();
     this.worklogTracker = new WorklogTracker();
     this.worklogTracker.setSessionManager(this.sessionManager);
-    this.fileWatcher = null;
-    this.autoTrackingEnabled = false;
-    this.watchedFiles = new Set();
     this.activeOperations = new Map();
-    this.debounceTimers = new Map();
     
     // Memory leak protection
-    this.MAX_TIMERS = 1000;
     this.MAX_OPERATIONS = 100;
     this.OPERATION_TIMEOUT = 300000; // 5 minutes
 
@@ -117,15 +110,15 @@ class AmazonQHistoryServer {
           }
         },
         {
-          name: 'auto_track_operations',
-          description: 'Enable/disable automatic tracking of Q operations and file changes',
+          name: 'log_git_commits',
+          description: 'Import git commit history into session worklog (optional)',
           inputSchema: {
             type: 'object',
             properties: {
-              enabled: { type: 'boolean', description: 'Enable or disable auto-tracking' },
-              watch_directory: { type: 'string', description: 'Directory to monitor for changes (defaults to current)' }
-            },
-            required: ['enabled']
+              since: { type: 'string', description: 'Git date/commit to start from (e.g., "1 hour ago", "HEAD~5")', default: '1 hour ago' },
+              max_commits: { type: 'number', description: 'Maximum number of commits to import', default: 10 },
+              branch: { type: 'string', description: 'Git branch to read from', default: 'HEAD' }
+            }
           }
         },
         {
@@ -191,8 +184,8 @@ class AmazonQHistoryServer {
             return await this.handleClearHistory(validatedArgs);
           case 'restore_backup':
             return await this.handleRestoreBackup(validatedArgs);
-          case 'auto_track_operations':
-            return await this.handleAutoTrackOperations(validatedArgs);
+          case 'log_git_commits':
+            return await this.handleLogGitCommits(validatedArgs);
           case 'process_hook':
             return await this.handleProcessHook(validatedArgs);
           case 'mark_criteria_complete':
@@ -321,146 +314,84 @@ class AmazonQHistoryServer {
     };
   }
 
-  async handleAutoTrackOperations(args) {
+  async handleLogGitCommits(args) {
     const session = await this.sessionManager.getCurrentSession();
     if (!session) {
       throw new Error('No active session. Run track_session first.');
     }
 
-    if (args.enabled) {
-      const watchDir = args.watch_directory || process.cwd();
-      await this.startAutoTracking(watchDir);
-      return {
-        content: [{
-          type: 'text',
-          text: `Auto-tracking enabled for directory: ${watchDir}\nMonitoring file changes and Q operations...`
-        }]
-      };
-    } else {
-      await this.stopAutoTracking();
-      return {
-        content: [{
-          type: 'text',
-          text: 'Auto-tracking disabled.'
-        }]
-      };
-    }
-  }
+    const since = args.since || '1 hour ago';
+    const maxCommits = args.max_commits || 10;
+    const branch = args.branch || 'HEAD';
 
-  async startAutoTracking(directory) {
-    if (this.fileWatcher) {
-      this.fileWatcher.close();
-    }
-
-    this.autoTrackingEnabled = true;
-    this.watchedFiles.clear();
-
-    // Get initial file list
     try {
-      const files = await fs.readdir(directory, { recursive: true });
-      for (const file of files) {
-        try {
-          const stat = await fs.stat(`${directory}/${file}`);
-          if (stat.isFile()) {
-            this.watchedFiles.add(file);
+      const { execSync } = await import('child_process');
+      const gitLog = execSync(
+        `git log ${branch} --since="${since}" -n ${maxCommits} --pretty=format:"%H|%s|%an|%ai" --name-only`,
+        { cwd: process.cwd(), encoding: 'utf8' }
+      ).toString();
+
+      const commits = this.parseGitLog(gitLog);
+
+      for (const commit of commits) {
+        await this.worklogTracker.logAction({
+          action: `Git commit: ${commit.message}`,
+          files_changed: commit.files,
+          status: 'success',
+          timestamp: commit.date,
+          metadata: {
+            git_hash: commit.hash,
+            author: commit.author,
+            source: 'git'
           }
-        } catch (e) {
-          // Skip files we can't access
-        }
+        });
       }
-    } catch (e) {
-      // Directory might not exist or be accessible
+
+      return {
+        content: [{
+          type: 'text',
+          text: `Imported ${commits.length} git commits into worklog`
+        }]
+      };
+
+    } catch (error) {
+      if (error.message.includes('not a git repository')) {
+        throw new Error('Not a git repository. This tool requires git.');
+      }
+      throw error;
     }
-
-    // Watch for changes
-    this.fileWatcher = watch(directory, { recursive: true }, async (eventType, filename) => {
-      if (!this.autoTrackingEnabled || !filename) return;
-
-      // Skip session files to avoid recursive loops
-      if (filename.includes('storage/sessions/') || 
-          filename.includes('.git/') || 
-          filename.includes('node_modules/') ||
-          filename.includes('/tmp/amazon-q-history/') ||
-          filename.endsWith('worklog.json') ||
-          filename.endsWith('history.json') ||
-          filename.endsWith('goals.json') ||
-          filename.endsWith('success-criteria.json') ||
-          filename.endsWith('metadata.json')) {
-        return;
-      }
-
-      // Debounce file changes to prevent rapid-fire logging
-      const debounceKey = filename;
-      if (this.debounceTimers.has(debounceKey)) {
-        clearTimeout(this.debounceTimers.get(debounceKey));
-      }
-
-      const debounceTimer = setTimeout(async () => {
-        this.debounceTimers.delete(debounceKey);
-
-        try {
-          const isNewFile = !this.watchedFiles.has(filename);
-          const filePath = `${directory}/${filename}`;
-          
-          // Check if file exists (might be deleted)
-          let fileExists = false;
-          try {
-            await fs.access(filePath);
-            fileExists = true;
-            this.watchedFiles.add(filename);
-          } catch (e) {
-            this.watchedFiles.delete(filename);
-          }
-
-          // Log the operation
-          let action = '';
-          if (isNewFile && fileExists) {
-            action = `Created file: ${filename}`;
-          } else if (!fileExists) {
-            action = `Deleted file: ${filename}`;
-          } else {
-            action = `Modified file: ${filename}`;
-          }
-
-          await this.worklogTracker.logAction({
-            action,
-            files_changed: [filename],
-            status: 'success',
-            timestamp: new Date().toISOString()
-          });
-
-        } catch (error) {
-          // Silently handle errors to avoid disrupting Q operations
-        }
-      }, 500); // 500ms debounce
-
-      this.addDebounceTimer(debounceKey, debounceTimer);
-    });
   }
 
-  async stopAutoTracking() {
-    this.autoTrackingEnabled = false;
-    if (this.fileWatcher) {
-      this.fileWatcher.close();
-      this.fileWatcher = null;
-    }
-    this.watchedFiles.clear();
+  parseGitLog(gitLog) {
+    const commits = [];
+    const lines = gitLog.split('\n');
     
-    // Clear all debounce timers
-    for (const timer of this.debounceTimers.values()) {
-      clearTimeout(timer);
+    let currentCommit = null;
+    
+    for (const line of lines) {
+      if (line.includes('|')) {
+        if (currentCommit) {
+          commits.push(currentCommit);
+        }
+        
+        const [hash, message, author, date] = line.split('|');
+        currentCommit = {
+          hash: hash.trim(),
+          message: message.trim(),
+          author: author.trim(),
+          date: date.trim(),
+          files: []
+        };
+      } else if (line.trim() && currentCommit) {
+        currentCommit.files.push(line.trim());
+      }
     }
-    this.debounceTimers.clear();
-  }
-
-  addDebounceTimer(key, timer) {
-    // Cleanup old timers if limit reached
-    if (this.debounceTimers.size >= this.MAX_TIMERS) {
-      const oldestKey = this.debounceTimers.keys().next().value;
-      clearTimeout(this.debounceTimers.get(oldestKey));
-      this.debounceTimers.delete(oldestKey);
+    
+    if (currentCommit) {
+      commits.push(currentCommit);
     }
-    this.debounceTimers.set(key, timer);
+    
+    return commits;
   }
 
   addActiveOperation(id, operation) {

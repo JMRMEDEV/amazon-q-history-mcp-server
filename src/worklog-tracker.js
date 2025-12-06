@@ -34,7 +34,8 @@ export class WorklogTracker {
         action: actionData.action,
         files_changed: actionData.files_changed || [],
         status: actionData.status || 'success',
-        duration: null // Could be calculated if start/end times provided
+        duration: null, // Could be calculated if start/end times provided
+        metadata: actionData.metadata || null
       };
 
       worklog.actions.push(actionEntry);
