@@ -114,7 +114,8 @@ class AmazonQHistoryServer {
           inputSchema: {
             type: 'object',
             properties: {
-              session_id: { type: 'string', description: 'Session ID to restore (optional - will list available if not provided)' }
+              session_id: { type: 'string', description: 'Session ID to restore (optional - will list available if not provided)' },
+              force: { type: 'boolean', description: 'Force restore even if session exists (default: false)' }
             }
           }
         },
@@ -218,6 +219,7 @@ class AmazonQHistoryServer {
             throw new Error(`Unknown tool: ${name}`);
         }
       } catch (error) {
+        logger.error('Tool execution failed', { tool: name, error: error.message, stack: error.stack });
         return {
           content: [{ type: 'text', text: `Error: ${error.message}` }],
           isError: true
@@ -367,7 +369,7 @@ class AmazonQHistoryServer {
   }
 
   async handleRestoreBackup(args) {
-    const result = await this.sessionManager.restoreFromBackup(args.session_id);
+    const result = await this.sessionManager.restoreFromBackup(args.session_id, { force: args.force });
     return {
       content: [{
         type: 'text',

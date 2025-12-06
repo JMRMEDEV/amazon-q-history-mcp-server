@@ -210,7 +210,7 @@ export class SessionManager {
       try {
         history = JSON.parse(await fs.readFile(historyPath, 'utf8'));
       } catch (e) {
-        // File doesn't exist yet
+        logger.debug('History file not found, creating new', { path: historyPath });
       }
 
       const promptEntry = {
@@ -496,14 +496,15 @@ export class SessionManager {
     try {
       await fs.rm(session.storage_path, { recursive: true, force: true });
       await fs.rm(session.backup_path, { recursive: true, force: true });
+      logger.info('History cleared', { session_id: session.id });
     } catch (e) {
-      // Ignore errors if directories don't exist
+      logger.warn('Error clearing history', { error: e.message });
     }
     
     this.currentSession = null;
   }
 
-  async restoreFromBackup(sessionId) {
+  async restoreFromBackup(sessionId, options = {}) {
     const backupDir = this.backupDir;
     
     try {
@@ -533,7 +534,28 @@ export class SessionManager {
       try {
         await fs.access(backupPath);
       } catch (e) {
+        logger.error('Backup not found', { session_id: sessionId, path: backupPath });
         return { message: `Backup session ${sessionId} not found in /tmp/amazon-q-history/` };
+      }
+
+      // Check if session already exists in storage
+      let sessionExists = false;
+      try {
+        await fs.access(restorePath);
+        sessionExists = true;
+      } catch (e) {
+        // Session doesn't exist, safe to restore
+      }
+
+      if (sessionExists && !options.force) {
+        logger.warn('Restore blocked - session exists', { session_id: sessionId });
+        return { 
+          message: `Warning: Session ${sessionId} already exists in storage.\n\n` +
+                   `This will overwrite existing data. To proceed, use:\n` +
+                   `restore_backup --session_id "${sessionId}" --force true\n\n` +
+                   `Or backup current session first with a different tool.`,
+          requiresConfirmation: true
+        };
       }
 
       // Copy backup to main storage
@@ -546,12 +568,14 @@ export class SessionManager {
         await fs.copyFile(srcPath, destPath);
       }
 
+      logger.info('Session restored', { session_id: sessionId, files: files.length });
       const summary = await this.getSessionSummary(restorePath);
       return { 
         message: `Successfully restored session: ${summary}\nFiles restored: ${files.join(', ')}`
       };
 
     } catch (error) {
+      logger.error('Restore failed', { session_id: sessionId, error: error.message });
       return { message: `Error restoring backup: ${error.message}` };
     }
   }

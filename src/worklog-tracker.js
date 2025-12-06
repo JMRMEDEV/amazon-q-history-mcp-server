@@ -28,7 +28,7 @@ export class WorklogTracker {
       try {
         worklog = JSON.parse(await fs.readFile(worklogPath, 'utf8'));
       } catch (e) {
-        // File doesn't exist yet
+        logger.debug('Worklog file not found, creating new', { path: worklogPath });
       }
 
       const actionEntry = {
