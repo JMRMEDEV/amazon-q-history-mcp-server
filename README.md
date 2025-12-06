@@ -19,6 +19,296 @@ cd /home/jmrmedev/mcp-servers/amazon-q-history
 npm install
 ```
 
+## Configuration
+
+### Storage Modes
+
+Create `.amazon-q-history/config.json` in your project root to configure storage behavior.
+
+#### Server Mode (Default)
+```json
+{
+  "storage_mode": "server"
+}
+```
+- History stored in MCP server directory
+- Backup in `/tmp/amazon-q-history/`
+- No delete protection
+
+#### Project Mode
+```json
+{
+  "storage_mode": "project"
+}
+```
+- History stored in `.amazon-q-history/` directory
+- Backup also in project directory
+- Delete protection enabled
+- History stays with project
+
+### Tool Permissions
+
+Control which tools are available in your project.
+
+#### Allow All (Default)
+```json
+{
+  "tools": {
+    "mode": "all"
+  }
+}
+```
+All tools available, no restrictions.
+
+#### Whitelist Mode
+```json
+{
+  "tools": {
+    "mode": "allow",
+    "list": [
+      "track_session",
+      "log_prompt",
+      "log_action",
+      "get_recent_context"
+    ]
+  }
+}
+```
+Only listed tools are available. Most restrictive.
+
+#### Blacklist Mode
+```json
+{
+  "tools": {
+    "mode": "deny",
+    "list": [
+      "clear_session_history",
+      "restore_backup"
+    ]
+  }
+}
+```
+All tools available EXCEPT those listed. Good for blocking dangerous operations.
+
+### Preset Configurations
+
+Copy preset configs to get started quickly:
+
+```bash
+# Read-only access (viewing only)
+cp preset-configs/read-only.json .amazon-q-history/config.json
+
+# Safe development (no destructive operations)
+cp preset-configs/safe-dev.json .amazon-q-history/config.json
+
+# Git-focused workflow
+cp preset-configs/git-workflow.json .amazon-q-history/config.json
+
+# Team-safe (prevent accidental deletes)
+cp preset-configs/team-safe.json .amazon-q-history/config.json
+
+# Project storage (default permissions)
+cp preset-configs/project-storage.json .amazon-q-history/config.json
+
+# Server storage (default permissions)
+cp preset-configs/server-storage.json .amazon-q-history/config.json
+```
+
+#### Available Presets
+
+**read-only.json**
+- Storage: Project mode
+- Tools: Only viewing tools (get_session_history, get_recent_context, check_progress)
+- Use case: Reviewing history without making changes
+
+**safe-dev.json**
+- Storage: Project mode
+- Tools: All except clear_session_history and restore_backup
+- Use case: Development with protection against accidental deletes
+
+**git-workflow.json**
+- Storage: Project mode
+- Tools: Session tracking, git integration, and viewing tools
+- Use case: Git-focused development workflow
+
+**team-safe.json**
+- Storage: Project mode
+- Tools: All except clear_session_history
+- Use case: Team environments where history should be preserved
+
+**project-storage.json**
+- Storage: Project mode
+- Tools: All available
+- Use case: Full-featured project-based storage
+
+**server-storage.json**
+- Storage: Server mode
+- Tools: All available
+- Use case: Default centralized storage
+
+### Setting Up config.json in Your Project
+
+#### Step-by-Step Guide
+
+**1. Create the configuration directory**
+```bash
+cd /path/to/your/project
+mkdir -p .amazon-q-history
+```
+
+**2. Choose your configuration approach**
+
+**Option A: Use a preset (recommended)**
+```bash
+# Copy a preset that matches your needs
+cp /path/to/amazon-q-history/preset-configs/safe-dev.json .amazon-q-history/config.json
+```
+
+**Option B: Create custom config**
+```bash
+# Create config.json manually
+cat > .amazon-q-history/config.json << 'EOF'
+{
+  "storage_mode": "project",
+  "tools": {
+    "mode": "deny",
+    "list": ["clear_session_history"]
+  }
+}
+EOF
+```
+
+**3. Verify configuration**
+```bash
+# Check that config file exists
+cat .amazon-q-history/config.json
+```
+
+**4. Start using Amazon Q History**
+```bash
+# Initialize session (will automatically load config)
+q chat --agent your-agent
+
+# Or use MCP tool directly
+track_session --agent_name "my-agent"
+```
+
+#### Configuration Examples
+
+**Example 1: Personal Project (Full Control)**
+```json
+{
+  "storage_mode": "project"
+}
+```
+- All tools available
+- History stored in project
+- Can commit to git if desired
+
+**Example 2: Team Project (Safety First)**
+```json
+{
+  "storage_mode": "project",
+  "tools": {
+    "mode": "deny",
+    "list": ["clear_session_history"]
+  }
+}
+```
+- Prevents accidental history deletion
+- All other tools available
+- Safe for team collaboration
+
+**Example 3: CI/CD Environment (Read-Only)**
+```json
+{
+  "storage_mode": "server",
+  "tools": {
+    "mode": "allow",
+    "list": [
+      "get_session_history",
+      "get_recent_context",
+      "check_progress"
+    ]
+  }
+}
+```
+- Only viewing tools
+- No modifications allowed
+- Good for automated checks
+
+**Example 4: Git-Only Workflow**
+```json
+{
+  "storage_mode": "project",
+  "tools": {
+    "mode": "allow",
+    "list": [
+      "track_session",
+      "log_git_commits",
+      "get_recent_context",
+      "check_progress"
+    ]
+  }
+}
+```
+- Focus on git integration
+- No manual logging
+- Streamlined workflow
+
+#### Adding config.json to Git
+
+**Option 1: Commit config (recommended for teams)**
+```bash
+# Add config to version control
+git add .amazon-q-history/config.json
+git commit -m "Add Amazon Q History config"
+
+# Add sessions to .gitignore
+echo ".amazon-q-history/sessions/" >> .gitignore
+echo ".amazon-q-history/backup/" >> .gitignore
+echo ".amazon-q-history/logs/" >> .gitignore
+```
+
+**Option 2: Keep config local**
+```bash
+# Ignore entire .amazon-q-history directory
+echo ".amazon-q-history/" >> .gitignore
+```
+
+#### Troubleshooting
+
+**Config not loading?**
+- Ensure file is named exactly `config.json`
+- Check file is in `.amazon-q-history/` directory at project root
+- Verify JSON syntax is valid: `cat .amazon-q-history/config.json | jq`
+
+**Tool blocked unexpectedly?**
+- Check `tools.mode` setting
+- Verify tool name is in correct list (allow vs deny)
+- Review available tools in documentation
+
+**Storage path issues?**
+- Confirm `storage_mode` is either "server" or "project"
+- Check directory permissions
+- Verify `.amazon-q-history/` directory exists
+
+#### Available Tools Reference
+
+All tools that can be controlled via config:
+- `track_session` - Initialize sessions
+- `log_prompt` - Record prompts
+- `log_action` - Manual logging
+- `log_git_commits` - Git integration
+- `get_session_history` - View history
+- `get_recent_context` - Recent context
+- `check_progress` - Progress monitoring
+- `mark_criteria_complete` - Mark goals complete
+- `clear_session_history` - Delete history
+- `restore_backup` - Restore sessions
+- `init_project_storage` - Initialize project mode
+- `process_hook` - Hook processing
+
 ## Usage
 
 ### Initialize Session
