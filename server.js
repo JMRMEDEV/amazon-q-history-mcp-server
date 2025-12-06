@@ -101,6 +101,14 @@ class AmazonQHistoryServer {
           }
         },
         {
+          name: 'init_project_storage',
+          description: 'Initialize project-based storage (stores history in .amazon-q-history/)',
+          inputSchema: {
+            type: 'object',
+            properties: {}
+          }
+        },
+        {
           name: 'restore_backup',
           description: 'Restore session data from /tmp backup',
           inputSchema: {
@@ -183,6 +191,8 @@ class AmazonQHistoryServer {
             return await this.handleCheckProgress();
           case 'clear_session_history':
             return await this.handleClearHistory(validatedArgs);
+          case 'init_project_storage':
+            return await this.handleInitProjectStorage();
           case 'restore_backup':
             return await this.handleRestoreBackup(validatedArgs);
           case 'log_git_commits':
@@ -299,11 +309,48 @@ class AmazonQHistoryServer {
       };
     }
 
-    await this.sessionManager.clearHistory();
+    try {
+      await this.sessionManager.clearHistory();
+      return {
+        content: [{
+          type: 'text',
+          text: 'Session history cleared successfully.'
+        }]
+      };
+    } catch (err) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Error: ${err.message}`
+        }]
+      };
+    }
+  }
+
+  async handleInitProjectStorage() {
+    const { promises: fs } = await import('fs');
+    const { join } = await import('path');
+    const cwd = process.cwd();
+    const configDir = join(cwd, '.amazon-q-history');
+    const configPath = join(configDir, 'config.json');
+    
+    await fs.mkdir(configDir, { recursive: true });
+    
+    const config = {
+      storage_mode: 'project',
+      created_at: new Date().toISOString()
+    };
+    
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2));
+    
     return {
       content: [{
         type: 'text',
-        text: 'Session history cleared successfully.'
+        text: `Project storage initialized!\n\n` +
+              `Config created: ${configPath}\n` +
+              `Storage mode: project\n\n` +
+              `History will be stored in .amazon-q-history/ directory.\n` +
+              `Delete protection is now enabled.`
       }]
     };
   }
