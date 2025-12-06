@@ -6,18 +6,32 @@ import os from 'os';
 import { fileQueue } from './file-operation-queue.js';
 import { logger } from './logger.js';
 import { eventBus } from './event-bus.js';
+import { ConfigManager } from './config-manager.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export class SessionManager {
   constructor() {
-    this.storageDir = join(__dirname, '../storage/sessions');
-    this.backupDir = join(os.tmpdir(), 'amazon-q-history');
+    this.defaultStorageDir = join(__dirname, '../storage/sessions');
+    this.defaultBackupDir = join(os.tmpdir(), 'amazon-q-history');
+    this.storageDir = this.defaultStorageDir;
+    this.backupDir = this.defaultBackupDir;
     this.currentSession = null;
+    this.configManager = new ConfigManager();
   }
 
   async initializeSession(agentName = 'amazon-q') {
     const cwd = process.cwd();
+    
+    // Load config and set storage paths
+    await this.configManager.loadConfig(cwd);
+    this.storageDir = this.configManager.getStoragePath(cwd, this.defaultStorageDir);
+    this.backupDir = this.configManager.getBackupPath(cwd, this.defaultBackupDir);
+    
+    logger.info('Storage initialized', { 
+      mode: this.configManager.config.storage_mode,
+      storage: this.storageDir
+    });
     
     // Check for existing session in current directory for this agent
     const existingSession = await this.getCurrentSession(agentName);
@@ -471,6 +485,11 @@ export class SessionManager {
   }
 
   async clearHistory() {
+    if (!this.configManager.canDelete()) {
+      logger.warn('Delete blocked in project mode');
+      throw new Error('Cannot delete history in project storage mode');
+    }
+    
     const session = await this.getCurrentSession();
     if (!session) return;
 
