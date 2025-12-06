@@ -162,73 +162,11 @@ class AmazonQHistoryServer {
 
 **Issue:** Watches ALL files recursively, filters only after events fire. Performance issues in large projects.
 
-**Proposed Solutions:**
+**Decision:** [x] Obsolete - 2025-12-05
 
-#### Option A: Gitignore-style patterns (Recommended)
-```javascript
-import ignore from 'ignore';
+**Resolution:** Auto-tracking feature was removed in Issue #10 and replaced with git integration (`log_git_commits`). File watching is no longer part of the system, making this issue obsolete.
 
-class SmartFileWatcher {
-  constructor() {
-    this.ig = ignore();
-    this.loadIgnorePatterns();
-  }
-  
-  async loadIgnorePatterns() {
-    // Load from .gitignore
-    try {
-      const gitignore = await fs.readFile('.gitignore', 'utf8');
-      this.ig.add(gitignore);
-    } catch (e) {}
-    
-    // Load from .qhistoryignore
-    try {
-      const qignore = await fs.readFile('.qhistoryignore', 'utf8');
-      this.ig.add(qignore);
-    } catch (e) {}
-    
-    // Add defaults
-    this.ig.add([
-      'node_modules/**',
-      '.git/**',
-      'storage/sessions/**',
-      '**/*.log',
-      '/tmp/**'
-    ]);
-  }
-  
-  shouldWatch(filename) {
-    return !this.ig.ignores(filename);
-  }
-}
-```
-
-#### Option B: Watch specific directories only
-```javascript
-const watchDirs = ['src/', 'lib/', 'config/'];
-for (const dir of watchDirs) {
-  watch(join(baseDir, dir), { recursive: true }, handler);
-}
-```
-
-#### Option C: Chokidar with debouncing
-```javascript
-import chokidar from 'chokidar';
-
-const watcher = chokidar.watch('.', {
-  ignored: /(^|[\/\\])\../, // ignore dotfiles
-  persistent: true,
-  ignoreInitial: true,
-  awaitWriteFinish: {
-    stabilityThreshold: 500,
-    pollInterval: 100
-  }
-});
-```
-
-**Recommendation:** Option A + C combined
-
-**Decision:** [ ] Pending
+**Related:** See Issue #10 for git integration implementation.
 
 ---
 
