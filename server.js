@@ -175,6 +175,17 @@ class AmazonQHistoryServer {
       const { name, arguments: args } = request.params;
       
       try {
+        // Check tool permissions
+        if (!this.sessionManager.configManager.isToolAllowed(name)) {
+          return {
+            content: [{
+              type: 'text',
+              text: `Error: Tool '${name}' is disabled by project configuration`
+            }],
+            isError: true
+          };
+        }
+        
         // Validate input before processing
         const validatedArgs = validateToolInput(name, args);
         
