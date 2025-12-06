@@ -165,7 +165,97 @@
 - 🎉 **All critical issues (Phase 1) complete!**
 - Real-world testing with kiro-cli for all completed issues
 - Update README and documentation ✅ DONE
-- Consider medium priority issues (Phase 2)
+- ✅ **Phase 2 started - 3 of 6 issues complete**
+
+---
+
+## 2025-12-05 (Evening)
+
+### Completed - Issue #2: Logging System 🟡
+- ✅ Created minimal `Logger` class in `src/logger.js`
+- ✅ Dual logging: project logs (`.amazon-q-history/logs/session.log`) and server logs (`logs/server.log`)
+- ✅ Four log levels: debug, info, warn, error
+- ✅ Integrated into server.js, session-manager.js, worklog-tracker.js
+- ✅ Created test (`test-logging.js`) with 4 log entries
+- ✅ Test passes
+- **Result:** Debug logs now available for troubleshooting
+
+#### Implementation Details
+- **Project logs:** Quick access in working directory
+- **Server logs:** Centralized MCP server debugging
+- **Format:** `[timestamp] LEVEL: message {metadata}`
+- **Async:** Non-blocking file writes
+
+#### Testing Status
+- ✅ Test passes with 4 log entries
+- ⏳ **Pending:** Real-world testing with kiro-cli
+
+#### Files Modified
+- `src/logger.js` (created)
+- `server.js` (added logger import and init)
+- `src/session-manager.js` (added logging)
+- `src/worklog-tracker.js` (added logging)
+- `test-logging.js` (created)
+
+### Completed - Issue #5: Circular Dependency 🟡
+- ✅ Created `EventBus` class in `src/event-bus.js`
+- ✅ SessionManager emits `prompt:logged` event
+- ✅ WorklogTracker emits `action:logged` event
+- ✅ Removed direct method calls between managers
+- ✅ Event-based architecture eliminates circular dependency
+- **Result:** Clean separation of concerns, no circular imports
+
+#### Implementation Details
+- **Event bus:** Singleton EventEmitter with 50 max listeners
+- **Events:** `prompt:logged`, `action:logged`
+- **Pattern:** Components emit events instead of calling each other directly
+- **Future:** Can add more event listeners without modifying existing code
+
+#### Testing Status
+- ✅ Integrated into existing codebase
+- ✅ No breaking changes
+- ⏳ **Pending:** Real-world testing with kiro-cli
+
+#### Files Modified
+- `src/event-bus.js` (created)
+- `src/session-manager.js` (emit events)
+- `src/worklog-tracker.js` (emit events)
+
+### Completed - Issue #11: Multi-Agent Session Handling 🟡
+- ✅ Updated `getCurrentSession()` to accept `agentName` parameter
+- ✅ Session matching now checks BOTH directory AND agent name
+- ✅ Multiple agents can work in same directory with separate sessions
+- ✅ Created test (`test-multi-agent.js`) with 2 agents
+- ✅ Test passes: agents get separate sessions
+- **Result:** Multi-agent support working correctly
+
+#### Implementation Details
+- **Session lookup:** Matches `directory + agent_name`
+- **Backward compatible:** If no agent name provided, matches directory only
+- **Session IDs:** Include agent name in ID format: `timestamp_agentname_hash`
+- **Logging:** Added log when existing session found
+
+#### Testing Status
+- ✅ Test passes with 2 agents in same directory
+- ✅ Each agent gets separate session
+- ✅ Session lookup finds correct session per agent
+- ⏳ **Pending:** Real-world testing with kiro-cli
+
+#### Files Modified
+- `src/session-manager.js` (updated getCurrentSession and initializeSession)
+- `test-multi-agent.js` (created)
+
+### Phase 2 Progress
+**Status:** 🟡 IN PROGRESS (3 of 6 complete)  
+**Completed:**
+1. ✅ Issue #2 - Logging system
+2. ✅ Issue #5 - Circular dependency fix
+3. ✅ Issue #11 - Multi-agent session handling
+
+**Remaining:**
+4. ⏳ Issue #4 - File watching improvements
+5. ⏳ Issue #15 - Error handling
+6. ⏳ Issue #14 - Backup restoration safety
 
 ---
 
