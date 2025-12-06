@@ -1,0 +1,9 @@
+{
+  "storage_mode": "project",
+  "tools": {
+    "mode": "deny",
+    "list": [
+      "clear_session_history"
+    ]
+  }
+}

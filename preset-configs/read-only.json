@@ -1,0 +1,11 @@
+{
+  "storage_mode": "project",
+  "tools": {
+    "mode": "allow",
+    "list": [
+      "get_session_history",
+      "get_recent_context",
+      "check_progress"
+    ]
+  }
+}
