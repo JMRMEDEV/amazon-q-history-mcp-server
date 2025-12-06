@@ -33,7 +33,7 @@
                 "command": "echo 'ALWAYS use log_prompt tool to record this user prompt and extract goals/requirements for session tracking. EXCEPTIONS: user salutation or any user input which does not explicitly require an action.'"
             }
         ],
-        "agentStop": [
+        "stop": [
             {
                 "command": "echo 'OPTIONAL: Before ending session, suggest importing final git commits with log_git_commits to capture any work done during this session.'"
             }
