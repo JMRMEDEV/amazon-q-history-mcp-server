@@ -4,6 +4,8 @@ import { fileURLToPath } from 'url';
 import { createHash } from 'crypto';
 import os from 'os';
 import { fileQueue } from './file-operation-queue.js';
+import { logger } from './logger.js';
+import { eventBus } from './event-bus.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -17,8 +19,8 @@ export class SessionManager {
   async initializeSession(agentName = 'amazon-q') {
     const cwd = process.cwd();
     
-    // Check for existing session in current directory first
-    const existingSession = await this.getCurrentSession();
+    // Check for existing session in current directory for this agent
+    const existingSession = await this.getCurrentSession(agentName);
     if (existingSession && existingSession.agent_name === agentName) {
       this.currentSession = existingSession;
       return this.currentSession;
@@ -85,7 +87,7 @@ export class SessionManager {
     }
   }
 
-  async getCurrentSession() {
+  async getCurrentSession(agentName = null) {
     if (this.currentSession) return this.currentSession;
     
     // Try to find existing session for current directory and agent
@@ -99,7 +101,8 @@ export class SessionManager {
         const metadataPath = join(this.storageDir, sessionId, 'metadata.json');
         try {
           const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
-          if (metadata.directory === cwd) {
+          // Match BOTH directory AND agent name (if provided)
+          if (metadata.directory === cwd && (!agentName || metadata.agent_name === agentName)) {
             sessionData.push({ id: sessionId, metadata });
           }
         } catch (e) {
@@ -108,9 +111,10 @@ export class SessionManager {
       }
       
       if (sessionData.length > 0) {
-        // Return the most recent session for this directory
+        // Return the most recent session for this directory + agent
         sessionData.sort((a, b) => new Date(b.metadata.created_at) - new Date(a.metadata.created_at));
         this.currentSession = sessionData[0].metadata;
+        logger.info('Found existing session', { session_id: this.currentSession.session_id, agent: this.currentSession.agent_name });
         return this.currentSession;
       }
     } catch (e) {
@@ -180,6 +184,7 @@ export class SessionManager {
 
   async logPrompt(prompt, extractedContext) {
     return fileQueue.enqueue(async () => {
+      logger.debug('Logging prompt', { prompt_length: prompt.length });
       const session = await this.getCurrentSession();
       const historyPath = join(session.storage_path, 'history.json');
       const backupHistoryPath = join(session.backup_path, 'history.json');
@@ -209,6 +214,9 @@ export class SessionManager {
 
       // Update goals and success criteria
       await this.updateGoalsAndCriteria(extractedContext);
+      
+      // Emit event for other components
+      eventBus.emit('prompt:logged', { prompt, extractedContext });
     });
   }
 

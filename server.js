@@ -7,6 +7,7 @@ import { SessionManager } from './src/session-manager.js';
 import { ContextExtractor } from './src/context-extractor.js';
 import { WorklogTracker } from './src/worklog-tracker.js';
 import { validateToolInput } from './src/input-validator.js';
+import { logger } from './src/logger.js';
 
 class AmazonQHistoryServer {
   constructor() {
@@ -205,7 +206,10 @@ class AmazonQHistoryServer {
   }
 
   async handleTrackSession(args) {
+    await logger.init(process.cwd());
+    logger.info('Initializing session', { agent_name: args.agent_name, cwd: process.cwd() });
     const session = await this.sessionManager.initializeSession(args.agent_name);
+    logger.info('Session initialized', { session_id: session.session_id });
     return {
       content: [{
         type: 'text',

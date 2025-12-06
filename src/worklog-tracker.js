@@ -1,6 +1,8 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { fileQueue } from './file-operation-queue.js';
+import { eventBus } from './event-bus.js';
+import { logger } from './logger.js';
 
 export class WorklogTracker {
   constructor() {
@@ -13,6 +15,7 @@ export class WorklogTracker {
 
   async logAction(actionData) {
     return fileQueue.enqueue(async () => {
+      logger.debug('Logging action', { action: actionData.action });
       const session = await this.getSession();
       const worklogPath = join(session.storage_path, 'worklog.json');
       const backupWorklogPath = join(session.backup_path, 'worklog.json');
@@ -50,6 +53,9 @@ export class WorklogTracker {
       if (this.sessionManager) {
         await this.sessionManager.updateSuccessCriteria();
       }
+      
+      // Emit event for other components
+      eventBus.emit('action:logged', actionEntry);
     });
   }
 
