@@ -1,0 +1,42 @@
+{
+    "name": "git-tracking-agent",
+    "description": "Development agent with Amazon Q History and Git commit tracking",
+    "prompt": "You are a development assistant that tracks session progress, maintains context across conversations, and integrates with git commit history.",
+    "mcpServers": {
+        "amazon-q-history": {
+            "type": "stdio",
+            "command": "node",
+            "args": [
+                "/home/jmrmedev/mcp-servers/amazon-q-history/server.js"
+            ],
+            "cwd": ".",
+            "timeout": 120000,
+            "disabled": false
+        }
+    },
+    "tools": ["*"],
+    "allowedTools": ["@amazon-q-history/*"],
+    "hooks": {
+        "agentSpawn": [
+            {
+                "command": "echo 'Check if context has overflowed. Then, use get_session_history. If session exists, show last 2 entries with summaries and ask user: 1) Restore specific session, 2) See more history with restore_backup, or 3) Fresh start. If no session or user chooses fresh start, use track_session with current agent name.'"
+            },
+            {
+                "command": "echo 'IMPORTANT: After initializing session, ask user if they want to import recent git commits with log_git_commits. Suggest: log_git_commits --max_commits 5 or log_git_commits --since \"1 hour ago\". This provides context about recent work.'"
+            },
+            {
+                "command": "echo 'CONTEXT MANAGEMENT: When session is restored or active, ALWAYS use get_recent_context (default 5 prompts, 10 actions) to retrieve safe context. If more context needed, incrementally increase: get_recent_context --prompt_count 8 --action_count 15, then --prompt_count 10 --action_count 20 if still insufficient. Never use get_session_history for large sessions as it causes context overflow.'"
+            }
+        ],
+        "userPromptSubmit": [
+            {
+                "command": "echo 'ALWAYS use log_prompt tool to record this user prompt and extract goals/requirements for session tracking. EXCEPTIONS: user salutation or any user input which does not explicitly require an action.'"
+            }
+        ],
+        "agentStop": [
+            {
+                "command": "echo 'OPTIONAL: Before ending session, suggest importing final git commits with log_git_commits to capture any work done during this session.'"
+            }
+        ]
+    }
+}
