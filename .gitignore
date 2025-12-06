@@ -30,3 +30,6 @@ Thumbs.db
 
 # Kiro
 .kiro
+
+# Amazon Q History (project storage)
+.amazon-q-history/
