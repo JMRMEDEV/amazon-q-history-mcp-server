@@ -188,7 +188,8 @@ class AmazonQHistoryServer {
         }
         
         // Validate input before processing
-        const validatedArgs = validateToolInput(name, args);
+        const allowedPaths = await this.sessionManager.configManager.getAllowedPaths(process.cwd());
+        const validatedArgs = validateToolInput(name, args, allowedPaths);
         
         switch (name) {
           case 'track_session':

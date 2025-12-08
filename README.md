@@ -38,13 +38,20 @@ Create `.amazon-q-history/config.json` in your project root to configure storage
 #### Project Mode
 ```json
 {
-  "storage_mode": "project"
+  "storage_mode": "project",
+  "session_ttl_hours": 24,
+  "allowed_paths": [
+    "/home/user/repos/project1",
+    "/home/user/repos/project2"
+  ]
 }
 ```
 - History stored in `.amazon-q-history/` directory
 - Backup also in project directory
 - Delete protection enabled
 - History stays with project
+- **session_ttl_hours**: Reuse sessions within this time (default: 24)
+- **allowed_paths**: Additional paths for workspace/multi-project setups (auto-detects `.code-workspace` files)
 
 ### Tool Permissions
 

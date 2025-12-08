@@ -21,13 +21,14 @@ const IGNORED_PATTERNS = [
   '**/*.log'
 ];
 
-export function validatePath(inputPath, baseDir = process.cwd()) {
+export function validatePath(inputPath, allowedPaths = [process.cwd()]) {
   const normalized = normalize(inputPath);
-  const resolved = resolve(baseDir, normalized);
+  const resolved = resolve(normalized);
   
-  // Check path traversal
-  if (!resolved.startsWith(baseDir)) {
-    throw new Error('Path traversal detected: path must be within project directory');
+  // Check if path is within any allowed path
+  const isAllowed = allowedPaths.some(allowedPath => resolved.startsWith(allowedPath));
+  if (!isAllowed) {
+    throw new Error('Path not in allowed paths list');
   }
   
   // Check sensitive patterns
@@ -40,11 +41,11 @@ export function validatePath(inputPath, baseDir = process.cwd()) {
   return resolved;
 }
 
-export function validateToolInput(name, args) {
+export function validateToolInput(name, args, allowedPaths = [process.cwd()]) {
   switch (name) {
     case 'auto_track_operations':
       if (args.watch_directory) {
-        args.watch_directory = validatePath(args.watch_directory);
+        args.watch_directory = validatePath(args.watch_directory, allowedPaths);
       }
       break;
       
@@ -53,7 +54,7 @@ export function validateToolInput(name, args) {
         throw new Error('Action description too long (max 1000 characters)');
       }
       if (args.files_changed) {
-        args.files_changed = args.files_changed.map(f => validatePath(f));
+        args.files_changed = args.files_changed.map(f => validatePath(f, allowedPaths));
       }
       break;
       

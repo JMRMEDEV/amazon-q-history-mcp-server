@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { logger } from './logger.js';
+import { findWorkspaceFile, parseWorkspaceFile } from './utils.js';
 
 export class ConfigManager {
   constructor() {
@@ -45,6 +46,24 @@ export class ConfigManager {
       return join(projectDir, '.amazon-q-history', 'backup');
     }
     return serverBackupDir;
+  }
+
+  async getAllowedPaths(projectDir) {
+    const paths = [projectDir];
+    
+    // Add configured allowed_paths
+    if (this.config?.allowed_paths && Array.isArray(this.config.allowed_paths)) {
+      paths.push(...this.config.allowed_paths);
+    }
+    
+    // Auto-detect workspace folders
+    const workspaceFile = await findWorkspaceFile(projectDir);
+    if (workspaceFile) {
+      const workspacePaths = await parseWorkspaceFile(workspaceFile);
+      paths.push(...workspacePaths);
+    }
+    
+    return [...new Set(paths)]; // Remove duplicates
   }
 
   canDelete() {

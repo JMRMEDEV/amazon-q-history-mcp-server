@@ -7,6 +7,7 @@ import { fileQueue } from './file-operation-queue.js';
 import { logger } from './logger.js';
 import { eventBus } from './event-bus.js';
 import { ConfigManager } from './config-manager.js';
+import { normalizeAgentName } from './utils.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -22,27 +23,31 @@ export class SessionManager {
 
   async initializeSession(agentName = 'amazon-q') {
     const cwd = process.cwd();
+    const normalizedAgent = normalizeAgentName(agentName);
     
     // Load config and set storage paths
     await this.configManager.loadConfig(cwd);
     this.storageDir = this.configManager.getStoragePath(cwd, this.defaultStorageDir);
     this.backupDir = this.configManager.getBackupPath(cwd, this.defaultBackupDir);
     
+    logger.info('Initializing session', { agent_name: agentName, cwd });
     logger.info('Storage initialized', { 
       mode: this.configManager.config.storage_mode,
       storage: this.storageDir
     });
     
-    // Check for existing session in current directory for this agent
-    const existingSession = await this.getCurrentSession(agentName);
-    if (existingSession && existingSession.agent_name === agentName) {
+    // Check for existing session (reuse within TTL)
+    const existingSession = await this.findReusableSession(cwd, normalizedAgent);
+    if (existingSession) {
       this.currentSession = existingSession;
+      logger.info('Found existing session', { agent: normalizedAgent });
       return this.currentSession;
     }
     
+    // Create new session
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const hash = createHash('md5').update(cwd + timestamp + agentName).digest('hex').slice(0, 8);
-    const sessionId = `${timestamp}_${agentName}_${hash}`;
+    const hash = createHash('md5').update(cwd + timestamp + normalizedAgent).digest('hex').slice(0, 8);
+    const sessionId = `${timestamp}_${normalizedAgent}_${hash}`;
     
     const sessionDir = join(this.storageDir, sessionId);
     const backupSessionDir = join(this.backupDir, sessionId);
@@ -53,15 +58,17 @@ export class SessionManager {
     this.currentSession = {
       id: sessionId,
       directory: cwd,
-      agent_name: agentName,
+      agent_name: normalizedAgent,
+      agent_display_name: agentName,
       created_at: new Date().toISOString(),
       storage_path: sessionDir,
       backup_path: backupSessionDir,
-      context_resets: 0 // Track context overflow resets
+      context_resets: 0
     };
 
     await this.saveSessionMetadata();
     await this.initializeSessionFiles();
+    logger.info('Session initialized', {});
     return this.currentSession;
   }
 
@@ -82,7 +89,7 @@ export class SessionManager {
     const files = {
       'history.json': { prompts: [], last_activity: session.created_at },
       'goals.json': { goals: [], requirements: [], constraints: [] },
-      'success-criteria.json': { criteria: [], requirements_met: [], generated_at: session.created_at },
+      'success-criteria.json': { requirements_met: [], generated_at: session.created_at },
       'worklog.json': { actions: [], summary: {}, last_updated: session.created_at }
     };
 
@@ -101,41 +108,45 @@ export class SessionManager {
     }
   }
 
-  async getCurrentSession(agentName = null) {
-    if (this.currentSession) return this.currentSession;
-    
-    // Try to find existing session for current directory and agent
-    const cwd = process.cwd();
+  async findReusableSession(cwd, normalizedAgent) {
     try {
       const sessions = await fs.readdir(this.storageDir);
+      const ttlHours = this.configManager.config.session_ttl_hours || 24;
+      const now = Date.now();
       
-      // Sort sessions by creation time (newest first)
-      const sessionData = [];
       for (const sessionId of sessions) {
         const metadataPath = join(this.storageDir, sessionId, 'metadata.json');
         try {
           const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
-          // Match BOTH directory AND agent name (if provided)
-          if (metadata.directory === cwd && (!agentName || metadata.agent_name === agentName)) {
-            sessionData.push({ id: sessionId, metadata });
+          
+          // Match directory and normalized agent name
+          if (metadata.directory === cwd && metadata.agent_name === normalizedAgent) {
+            // Check TTL
+            const createdAt = new Date(metadata.created_at).getTime();
+            const ageHours = (now - createdAt) / (1000 * 60 * 60);
+            
+            if (ageHours < ttlHours) {
+              return metadata;
+            }
           }
         } catch (e) {
           continue;
         }
       }
-      
-      if (sessionData.length > 0) {
-        // Return the most recent session for this directory + agent
-        sessionData.sort((a, b) => new Date(b.metadata.created_at) - new Date(a.metadata.created_at));
-        this.currentSession = sessionData[0].metadata;
-        logger.info('Found existing session', { session_id: this.currentSession.session_id, agent: this.currentSession.agent_name });
-        return this.currentSession;
-      }
     } catch (e) {
-      // Storage directory doesn't exist yet
+      // Storage directory doesn't exist
     }
     
     return null;
+  }
+
+  async getCurrentSession(agentName = null) {
+    if (this.currentSession) return this.currentSession;
+    
+    const cwd = process.cwd();
+    const normalizedAgent = agentName ? normalizeAgentName(agentName) : null;
+    
+    return await this.findReusableSession(cwd, normalizedAgent);
   }
 
   async handleContextOverflow(agentName) {
@@ -276,14 +287,10 @@ export class SessionManager {
 
   generateSuccessCriteria(goals) {
     return {
-      criteria: goals.goals.map(goal => ({
-        description: goal,
-        completed: false,
-        completion_notes: null
-      })),
-      requirements_met: goals.requirements.map(req => ({
-        requirement: req,
+      requirements_met: [...goals.goals, ...goals.requirements].map(item => ({
+        requirement: item,
         satisfied: false,
+        satisfied_at: null,
         validation_notes: null
       })),
       generated_at: new Date().toISOString()
@@ -314,24 +321,13 @@ export class SessionManager {
       
       let updated = false;
       
-      // Update criteria based on worklog actions
-      for (const criterion of criteria.criteria) {
-        if (!criterion.completed) {
-          const isCompleted = this.checkCriterionCompletion(criterion.description, worklog.actions);
-          if (isCompleted) {
-            criterion.completed = true;
-            criterion.completion_notes = `Auto-completed based on worklog analysis`;
-            updated = true;
-          }
-        }
-      }
-      
-      // Update requirements
-      for (const requirement of criteria.requirements_met) {
+      // Update requirements_met only
+      for (const requirement of criteria.requirements_met || []) {
         if (!requirement.satisfied) {
           const isSatisfied = this.checkRequirementSatisfaction(requirement.requirement, worklog.actions);
           if (isSatisfied) {
             requirement.satisfied = true;
+            requirement.satisfied_at = new Date().toISOString();
             requirement.validation_notes = `Auto-satisfied based on worklog analysis`;
             updated = true;
           }
@@ -386,7 +382,7 @@ export class SessionManager {
       action.status === 'success'
     );
     
-    return matchingActions.length >= 2; // Require multiple matching actions
+    return matchingActions.length >= 1; // Single matching action is sufficient
   }
 
   async checkProgress() {
