@@ -371,14 +371,25 @@ get_recent_context --prompt_count 10 --action_count 20
 
 ### Restore from Backup
 ```bash
-# List available backups with summaries
+# List all available sessions (active and backup)
+list_sessions
+
+# Or use restore_backup without parameters
 restore_backup
 
 # Example output:
-# - 2025-10-13T19-04-26_amazon-q-developer_384fc4e1: I want to create a React app with authentication...
-# - 2025-10-13T19-09-26_amazon-q-developer_fbd33373: Build a Node.js REST API with JWT tokens...
+# **Active Sessions:**
+# - 2025-10-13T19-04-26_amazon-q-developer_384fc4e1
+#   Agent: amazon-q-developer, Created: 2025-10-13
+#
+# **Backup Sessions (deleted from active):**
+# - 2025-10-13T19-09-26_amazon-q-developer_fbd33373
+#   Agent: amazon-q-developer, Created: 2025-10-13
 
-# Restore specific session
+# Resume an active session (no restore needed)
+track_session --agent_name "amazon-q-developer"
+
+# Restore a backup session (deleted from active)
 restore_backup --session_id "2025-10-13T19-04-26_amazon-q-developer_384fc4e1"
 ```
 
@@ -397,7 +408,8 @@ clear_session_history --confirm true
 - `get_recent_context` - Get recent prompts/actions (context-safe for large sessions)
 - `check_progress` - Monitor goal completion
 - `clear_session_history` - Clean up with confirmation
-- `restore_backup` - Recover from `/tmp` backup
+- `list_sessions` - List all sessions (active and backup)
+- `restore_backup` - Recover from backup or resume active sessions
 
 ### Operation Tracking
 - `log_action` - Manual operation logging (recommended)

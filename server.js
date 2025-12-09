@@ -120,6 +120,14 @@ class AmazonQHistoryServer {
           }
         },
         {
+          name: 'list_sessions',
+          description: 'List all available sessions (active and backup)',
+          inputSchema: {
+            type: 'object',
+            properties: {}
+          }
+        },
+        {
           name: 'log_git_commits',
           description: 'Import git commit history into session worklog (optional)',
           inputSchema: {
@@ -208,6 +216,8 @@ class AmazonQHistoryServer {
             return await this.handleInitProjectStorage();
           case 'restore_backup':
             return await this.handleRestoreBackup(validatedArgs);
+          case 'list_sessions':
+            return await this.handleListSessions();
           case 'log_git_commits':
             return await this.handleLogGitCommits(validatedArgs);
           case 'process_hook':
@@ -371,6 +381,16 @@ class AmazonQHistoryServer {
 
   async handleRestoreBackup(args) {
     const result = await this.sessionManager.restoreFromBackup(args.session_id, { force: args.force });
+    return {
+      content: [{
+        type: 'text',
+        text: result.message
+      }]
+    };
+  }
+
+  async handleListSessions() {
+    const result = await this.sessionManager.listAllSessions();
     return {
       content: [{
         type: 'text',

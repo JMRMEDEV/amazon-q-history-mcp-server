@@ -501,71 +501,46 @@ export class SessionManager {
   }
 
   async restoreFromBackup(sessionId, options = {}) {
-    const backupDir = this.backupDir;
-    
     try {
-      // List available backups if no session ID provided
+      // List available sessions if no session ID provided
       if (!sessionId) {
-        const backups = await fs.readdir(backupDir);
-        if (backups.length === 0) {
-          return { message: 'No backup sessions found in /tmp/amazon-q-history/' };
-        }
-
-        // Get summaries for each backup
-        const summaries = [];
-        for (const id of backups) {
-          const summary = await this.getSessionSummary(join(backupDir, id));
-          summaries.push(`- ${id}: ${summary}`);
-        }
-        
-        return { 
-          message: `Available backup sessions:\n${summaries.join('\n')}\n\nUse restore_backup with session_id parameter to restore.`
-        };
+        return await this.listAllSessions();
       }
 
-      const backupPath = join(backupDir, sessionId);
-      const restorePath = join(this.storageDir, sessionId);
+      // First check if session already exists in storage (no restore needed)
+      const storagePath = join(this.storageDir, sessionId);
+      try {
+        await fs.access(storagePath);
+        return { 
+          message: `Session ${sessionId} already exists in active storage.\n\n` +
+                   `Use track_session to resume this session, no restore needed.`
+        };
+      } catch (e) {
+        // Session not in storage, proceed with restore from backup
+      }
+
+      const backupPath = join(this.backupDir, sessionId);
 
       // Check if backup exists
       try {
         await fs.access(backupPath);
       } catch (e) {
-        logger.error('Backup not found', { session_id: sessionId, path: backupPath });
-        return { message: `Backup session ${sessionId} not found in /tmp/amazon-q-history/` };
-      }
-
-      // Check if session already exists in storage
-      let sessionExists = false;
-      try {
-        await fs.access(restorePath);
-        sessionExists = true;
-      } catch (e) {
-        // Session doesn't exist, safe to restore
-      }
-
-      if (sessionExists && !options.force) {
-        logger.warn('Restore blocked - session exists', { session_id: sessionId });
-        return { 
-          message: `Warning: Session ${sessionId} already exists in storage.\n\n` +
-                   `This will overwrite existing data. To proceed, use:\n` +
-                   `restore_backup --session_id "${sessionId}" --force true\n\n` +
-                   `Or backup current session first with a different tool.`,
-          requiresConfirmation: true
-        };
+        logger.error('Session not found', { session_id: sessionId });
+        return { message: `Session ${sessionId} not found in backup or active storage.` };
       }
 
       // Copy backup to main storage
-      await fs.mkdir(restorePath, { recursive: true });
+      await fs.mkdir(storagePath, { recursive: true });
       const files = await fs.readdir(backupPath);
       
       for (const file of files) {
         const srcPath = join(backupPath, file);
-        const destPath = join(restorePath, file);
+        const destPath = join(storagePath, file);
         await fs.copyFile(srcPath, destPath);
       }
 
       logger.info('Session restored', { session_id: sessionId, files: files.length });
-      const summary = await this.getSessionSummary(restorePath);
+      const summary = await this.getSessionSummary(storagePath);
       return { 
         message: `Successfully restored session: ${summary}\nFiles restored: ${files.join(', ')}`
       };
@@ -574,6 +549,63 @@ export class SessionManager {
       logger.error('Restore failed', { session_id: sessionId, error: error.message });
       return { message: `Error restoring backup: ${error.message}` };
     }
+  }
+
+  async listAllSessions() {
+    const sessions = { active: [], backup: [] };
+    
+    // List active sessions
+    try {
+      const activeSessions = await fs.readdir(this.storageDir);
+      for (const id of activeSessions) {
+        const sessionPath = join(this.storageDir, id);
+        const summary = await this.getSessionSummary(sessionPath);
+        sessions.active.push({ id, summary, path: sessionPath });
+      }
+    } catch (e) {
+      // No active sessions
+    }
+    
+    // List backup sessions (only those not in active)
+    try {
+      const backupSessions = await fs.readdir(this.backupDir);
+      for (const id of backupSessions) {
+        if (!sessions.active.find(s => s.id === id)) {
+          const backupPath = join(this.backupDir, id);
+          const summary = await this.getSessionSummary(backupPath);
+          sessions.backup.push({ id, summary, path: backupPath });
+        }
+      }
+    } catch (e) {
+      // No backup sessions
+    }
+    
+    let message = '';
+    
+    if (sessions.active.length > 0) {
+      message += '**Active Sessions:**\n';
+      for (const s of sessions.active) {
+        message += `- ${s.id}\n  ${s.summary}\n`;
+      }
+      message += '\n';
+    }
+    
+    if (sessions.backup.length > 0) {
+      message += '**Backup Sessions (deleted from active):**\n';
+      for (const s of sessions.backup) {
+        message += `- ${s.id}\n  ${s.summary}\n`;
+      }
+      message += '\n';
+    }
+    
+    if (sessions.active.length === 0 && sessions.backup.length === 0) {
+      message = 'No sessions found.';
+    } else {
+      message += '\nUse `track_session` to resume an active session.\n';
+      message += 'Use `restore_backup --session_id <id>` to restore a backup session.';
+    }
+    
+    return { message };
   }
 
   async getSessionSummary(sessionPath) {
