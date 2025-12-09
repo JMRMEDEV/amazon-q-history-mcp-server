@@ -23,12 +23,13 @@ const IGNORED_PATTERNS = [
 
 export function validatePath(inputPath, allowedPaths = [process.cwd()]) {
   const normalized = normalize(inputPath);
-  const resolved = resolve(normalized);
+  // Resolve relative paths from cwd, absolute paths stay as-is
+  const resolved = resolve(process.cwd(), normalized);
   
   // Check if path is within any allowed path
   const isAllowed = allowedPaths.some(allowedPath => resolved.startsWith(allowedPath));
   if (!isAllowed) {
-    throw new Error('Path not in allowed paths list');
+    throw new Error(`Path not in allowed paths list: ${resolved}\nAllowed: ${allowedPaths.join(', ')}`);
   }
   
   // Check sensitive patterns
