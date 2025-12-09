@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { logger } from './logger.js';
 import { findWorkspaceFile, parseWorkspaceFile } from './utils.js';
 
@@ -51,9 +51,10 @@ export class ConfigManager {
   async getAllowedPaths(projectDir) {
     const paths = [projectDir];
     
-    // Add configured allowed_paths
+    // Add configured allowed_paths (resolve relative paths)
     if (this.config?.allowed_paths && Array.isArray(this.config.allowed_paths)) {
-      paths.push(...this.config.allowed_paths);
+      const resolvedPaths = this.config.allowed_paths.map(p => resolve(projectDir, p));
+      paths.push(...resolvedPaths);
     }
     
     // Auto-detect workspace folders

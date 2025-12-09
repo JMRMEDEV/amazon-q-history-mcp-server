@@ -1,0 +1,23 @@
+{
+  "storage_mode": "project",
+  "session_ttl_hours": 24,
+  "allowed_paths": [
+    ".",
+    "../",
+    "../project1",
+    "../project2"
+  ],
+  "tools": {
+    "mode": "allow",
+    "list": [
+      "track_session",
+      "log_prompt",
+      "log_action",
+      "log_git_commits",
+      "get_recent_context",
+      "get_session_history",
+      "check_progress",
+      "list_sessions"
+    ]
+  }
+}

@@ -52,6 +52,9 @@ Create `.amazon-q-history/config.json` in your project root to configure storage
 - History stays with project
 - **session_ttl_hours**: Reuse sessions within this time (default: 24)
 - **allowed_paths**: Additional paths for workspace/multi-project setups (auto-detects `.code-workspace` files)
+  - Supports absolute paths: `/home/user/repos/project1`
+  - Supports relative paths: `../`, `../sibling-project`, `../../parent`
+  - Relative paths resolved from project directory
 
 ### Tool Permissions
 
@@ -108,6 +111,9 @@ cp preset-configs/read-only.json .amazon-q-history/config.json
 # Safe development (no destructive operations)
 cp preset-configs/safe-dev.json .amazon-q-history/config.json
 
+# Workspace/multi-project setup (supports relative paths)
+cp preset-configs/workspace.json .amazon-q-history/config.json
+
 # Git-focused workflow
 cp preset-configs/git-workflow.json .amazon-q-history/config.json
 
@@ -132,6 +138,12 @@ cp preset-configs/server-storage.json .amazon-q-history/config.json
 - Storage: Project mode
 - Tools: All except clear_session_history and restore_backup
 - Use case: Development with protection against accidental deletes
+
+**workspace.json**
+- Storage: Project mode
+- Allowed paths: Supports relative paths (`.`, `../`, `../project`)
+- Tools: Core tools + list_sessions
+- Use case: Multi-project workspaces with sibling directories
 
 **git-workflow.json**
 - Storage: Project mode
