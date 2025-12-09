@@ -50,7 +50,10 @@ Create `.amazon-q-history/config.json` in your project root to configure storage
 - Backup also in project directory
 - Delete protection enabled
 - History stays with project
-- **session_ttl_hours**: Reuse sessions within this time (default: 24)
+- **session_ttl_hours**: Reuse sessions within this time
+  - `24` (default) - Sessions expire after 24 hours
+  - `0` or `null` - Infinite TTL, never expires (always reuse old sessions)
+  - Omit field - Infinite TTL (no expiration)
 - **allowed_paths**: Additional paths for workspace/multi-project setups (auto-detects `.code-workspace` files)
   - Supports absolute paths: `/home/user/repos/project1`
   - Supports relative paths: `../`, `../sibling-project`, `../../parent`
@@ -111,6 +114,9 @@ cp preset-configs/read-only.json .amazon-q-history/config.json
 # Safe development (no destructive operations)
 cp preset-configs/safe-dev.json .amazon-q-history/config.json
 
+# Long-term projects (infinite TTL, never expires)
+cp preset-configs/long-term.json .amazon-q-history/config.json
+
 # Workspace/multi-project setup (supports relative paths)
 cp preset-configs/workspace.json .amazon-q-history/config.json
 
@@ -138,6 +144,12 @@ cp preset-configs/server-storage.json .amazon-q-history/config.json
 - Storage: Project mode
 - Tools: All except clear_session_history and restore_backup
 - Use case: Development with protection against accidental deletes
+
+**long-term.json**
+- Storage: Project mode
+- TTL: 0 (infinite, never expires)
+- Tools: Core tools + list_sessions
+- Use case: Long-term projects where you return after weeks/months
 
 **workspace.json**
 - Storage: Project mode

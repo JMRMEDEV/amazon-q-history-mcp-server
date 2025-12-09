@@ -111,7 +111,7 @@ export class SessionManager {
   async findReusableSession(cwd, normalizedAgent) {
     try {
       const sessions = await fs.readdir(this.storageDir);
-      const ttlHours = this.configManager.config.session_ttl_hours || 24;
+      const ttlHours = this.configManager.config.session_ttl_hours;
       const now = Date.now();
       
       for (const sessionId of sessions) {
@@ -121,6 +121,11 @@ export class SessionManager {
           
           // Match directory and normalized agent name
           if (metadata.directory === cwd && metadata.agent_name === normalizedAgent) {
+            // If TTL is null/undefined/0, no expiration (infinite TTL)
+            if (!ttlHours) {
+              return metadata;
+            }
+            
             // Check TTL
             const createdAt = new Date(metadata.created_at).getTime();
             const ageHours = (now - createdAt) / (1000 * 60 * 60);
