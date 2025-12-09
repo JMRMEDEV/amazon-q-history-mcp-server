@@ -557,13 +557,19 @@ export class SessionManager {
   }
 
   async listAllSessions() {
+    // Always load config and set storage paths for current directory
+    const cwd = process.cwd();
+    await this.configManager.loadConfig(cwd);
+    const storageDir = this.configManager.getStoragePath(cwd, this.defaultStorageDir);
+    const backupDir = this.configManager.getBackupPath(cwd, this.defaultBackupDir);
+    
     const sessions = { active: [], backup: [] };
     
     // List active sessions
     try {
-      const activeSessions = await fs.readdir(this.storageDir);
+      const activeSessions = await fs.readdir(storageDir);
       for (const id of activeSessions) {
-        const sessionPath = join(this.storageDir, id);
+        const sessionPath = join(storageDir, id);
         const summary = await this.getSessionSummary(sessionPath);
         sessions.active.push({ id, summary, path: sessionPath });
       }
@@ -573,10 +579,10 @@ export class SessionManager {
     
     // List backup sessions (only those not in active)
     try {
-      const backupSessions = await fs.readdir(this.backupDir);
+      const backupSessions = await fs.readdir(backupDir);
       for (const id of backupSessions) {
         if (!sessions.active.find(s => s.id === id)) {
-          const backupPath = join(this.backupDir, id);
+          const backupPath = join(backupDir, id);
           const summary = await this.getSessionSummary(backupPath);
           sessions.backup.push({ id, summary, path: backupPath });
         }
