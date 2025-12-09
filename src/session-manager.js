@@ -112,7 +112,10 @@ export class SessionManager {
     try {
       const sessions = await fs.readdir(this.storageDir);
       const ttlHours = this.configManager.config.session_ttl_hours;
+      const preferRecent = this.configManager.config.prefer_recent_session !== false; // Default true
       const now = Date.now();
+      
+      const matchingSessions = [];
       
       for (const sessionId of sessions) {
         const metadataPath = join(this.storageDir, sessionId, 'metadata.json');
@@ -123,7 +126,8 @@ export class SessionManager {
           if (metadata.directory === cwd && metadata.agent_name === normalizedAgent) {
             // If TTL is null/undefined/0, no expiration (infinite TTL)
             if (!ttlHours) {
-              return metadata;
+              matchingSessions.push(metadata);
+              continue;
             }
             
             // Check TTL
@@ -131,12 +135,26 @@ export class SessionManager {
             const ageHours = (now - createdAt) / (1000 * 60 * 60);
             
             if (ageHours < ttlHours) {
-              return metadata;
+              matchingSessions.push(metadata);
             }
           }
         } catch (e) {
           continue;
         }
+      }
+      
+      // If multiple sessions found, pick most recent
+      if (matchingSessions.length > 0) {
+        if (preferRecent && matchingSessions.length > 1) {
+          matchingSessions.sort((a, b) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+          logger.info('Multiple sessions found, using most recent', { 
+            count: matchingSessions.length,
+            selected: matchingSessions[0].id 
+          });
+        }
+        return matchingSessions[0];
       }
     } catch (e) {
       // Storage directory doesn't exist

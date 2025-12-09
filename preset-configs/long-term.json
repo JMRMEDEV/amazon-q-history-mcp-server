@@ -1,6 +1,7 @@
 {
   "storage_mode": "project",
   "session_ttl_hours": 0,
+  "prefer_recent_session": true,
   "tools": {
     "mode": "allow",
     "list": [

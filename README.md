@@ -40,6 +40,7 @@ Create `.amazon-q-history/config.json` in your project root to configure storage
 {
   "storage_mode": "project",
   "session_ttl_hours": 24,
+  "prefer_recent_session": true,
   "allowed_paths": [
     "/home/user/repos/project1",
     "/home/user/repos/project2"
@@ -54,6 +55,9 @@ Create `.amazon-q-history/config.json` in your project root to configure storage
   - `24` (default) - Sessions expire after 24 hours
   - `0` or `null` - Infinite TTL, never expires (always reuse old sessions)
   - Omit field - Infinite TTL (no expiration)
+- **prefer_recent_session**: When multiple sessions exist for same agent (default: `true`)
+  - `true` - Always picks the most recent session (like loading latest save in a game)
+  - `false` - Picks first matching session (old behavior)
 - **allowed_paths**: Additional paths for workspace/multi-project setups (auto-detects `.code-workspace` files)
   - Supports absolute paths: `/home/user/repos/project1`
   - Supports relative paths: `../`, `../sibling-project`, `../../parent`
