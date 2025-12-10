@@ -115,6 +115,12 @@ All tools available EXCEPT those listed. Good for blocking dangerous operations.
 Copy preset configs to get started quickly:
 
 ```bash
+# Modern development with auto-restore (recommended)
+cp preset-configs/modern-dev.json .amazon-q-history/config.json
+
+# Auto-restore latest session on startup
+cp preset-configs/auto-restore.json .amazon-q-history/config.json
+
 # Read-only access (viewing only)
 cp preset-configs/read-only.json .amazon-q-history/config.json
 
@@ -544,12 +550,21 @@ Ready-to-use agent configuration with Amazon Q History integration and automatic
 ### Usage Instructions
 
 #### 1. Copy Preset Configuration
+
+Choose from available preset agents:
+- `basic-dev-agent.json` - Simple development agent with modern session management
+- `modern-dev-agent.json` - Advanced agent with auto-restore and git integration  
+- `git-tracking-agent.json` - Specialized for git workflow tracking
+
 ```bash
-# Copy preset to your Q CLI agents directory
+# Copy modern preset (recommended)
+cp /home/jmrmedev/mcp-servers/amazon-q-history/preset-agents/modern-dev-agent.json ~/.aws/amazonq/cli-agents/
+
+# Or copy basic preset
 cp /home/jmrmedev/mcp-servers/amazon-q-history/preset-agents/basic-dev-agent.json ~/.aws/amazonq/cli-agents/
 
 # Or copy to project-specific location
-cp /home/jmrmedev/mcp-servers/amazon-q-history/preset-agents/basic-dev-agent.json /path/to/project/.amazonq/cli-agents/
+cp /home/jmrmedev/mcp-servers/amazon-q-history/preset-agents/modern-dev-agent.json /path/to/project/.amazonq/cli-agents/
 ```
 
 #### 2. Customize Configuration

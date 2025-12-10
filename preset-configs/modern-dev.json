@@ -1,0 +1,9 @@
+{
+  "storage_mode": "project",
+  "restore_latest": true,
+  "session_ttl_hours": 24,
+  "prefer_recent_session": true,
+  "tools": {
+    "mode": "all"
+  }
+}

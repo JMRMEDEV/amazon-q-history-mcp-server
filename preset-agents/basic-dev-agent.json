@@ -1,7 +1,7 @@
 {
     "name": "basic-dev-agent",
-    "description": "Basic development agent with Amazon Q History tracking",
-    "prompt": "You are a development assistant that automatically tracks session progress and maintains context across conversations.",
+    "description": "Basic development agent with modern session management",
+    "prompt": "You are a development assistant that automatically tracks session progress and maintains context across conversations using modern session management.",
     "mcpServers": {
         "amazon-q-history": {
             "type": "stdio",
@@ -19,15 +19,15 @@
     "hooks": {
         "agentSpawn": [
             {
-                "command": "echo 'Check if context has overflowed. Then, use get_session_history. If session exists, show last 2 entries with summaries and ask user: 1) Restore specific session, 2) See more history with restore_backup, or 3) Fresh start. If no session or user chooses fresh start, use track_session with current agent name (or default agent name if not available) and auto_track_operations with enabled=true.'"
+                "command": "echo 'Use init_presession to browse sessions without creating one. Use restore_latest for most recent work or list_sessions to choose. Use track_session only for new work.'"
             },
             {
-                "command": "echo 'CONTEXT MANAGEMENT: When session is restored or active, ALWAYS use get_recent_context (default 5 prompts, 10 actions) to retrieve safe context. If more context needed, incrementally increase: get_recent_context --prompt_count 8 --action_count 15, then --prompt_count 10 --action_count 20 if still insufficient. Never use get_session_history for large sessions as it causes context overflow.'"
+                "command": "echo 'Use get_recent_context for safe context loading. Incrementally increase if needed. Avoid get_session_history for large sessions.'"
             }
         ],
         "userPromptSubmit": [
             {
-                "command": "echo 'ALWAYS use log_prompt tool to record this user prompt and extract goals/requirements for session tracking. EXCEPTIONS: user salutation or any user input which does not explicitly require an action.'"
+                "command": "echo 'Use log_prompt to record user prompts and extract goals. Skip for greetings or non-actionable inputs.'"
             }
         ]
     }
