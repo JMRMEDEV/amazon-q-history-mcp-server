@@ -617,9 +617,10 @@ export class SessionManager {
       return { message: 'No sessions found. Use track_session to create a new one.' };
     }
     
-    // Extract first session ID (most recent)
+    // Extract first session ID (most recent) - handle different formats
     const firstSession = sessionLines[0];
-    const sessionId = firstSession.split(' ')[1];
+    // Format: "- 2025-12-09T05-41-23_agent_hash" or "- 2025-12-09T05-41-23_agent_hash\n  description"
+    const sessionId = firstSession.replace(/^- /, '').split('\n')[0].trim();
     
     // Try to switch to it
     const result = await this.switchSession(sessionId);
@@ -703,6 +704,8 @@ export class SessionManager {
         const summary = await this.getSessionSummary(sessionPath);
         sessions.active.push({ id, summary, path: sessionPath });
       }
+      // Sort by date (newest first)
+      sessions.active.sort((a, b) => b.id.localeCompare(a.id));
     } catch (e) {
       // No active sessions
     }
@@ -717,6 +720,8 @@ export class SessionManager {
           sessions.backup.push({ id, summary, path: backupPath });
         }
       }
+      // Sort by date (newest first)
+      sessions.backup.sort((a, b) => b.id.localeCompare(a.id));
     } catch (e) {
       // No backup sessions
     }
