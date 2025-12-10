@@ -42,6 +42,7 @@ Create `.amazon-q-history/config.json` in your project root to configure storage
   "storage_mode": "project",
   "session_ttl_hours": 24,
   "prefer_recent_session": true,
+  "restore_latest": true,
   "allowed_paths": [
     "/home/user/repos/project1",
     "/home/user/repos/project2"
@@ -49,6 +50,7 @@ Create `.amazon-q-history/config.json` in your project root to configure storage
 }
 ```
 - History stored in `.amazon-q-history/` directory
+- `restore_latest`: Automatically restore most recent session on startup
 - Backup also in project directory
 - Delete protection enabled
 - History stays with project
@@ -333,6 +335,7 @@ echo ".amazon-q-history/" >> .gitignore
 
 All tools that can be controlled via config:
 - `track_session` - Initialize sessions
+- `init_presession` - Browse sessions without creating one
 - `log_prompt` - Record prompts
 - `log_action` - Manual logging
 - `log_git_commits` - Git integration
@@ -354,6 +357,9 @@ All tools that can be controlled via config:
 ### Session Management
 
 ```bash
+# Browse sessions without creating one (presession mode)
+init_presession
+
 # Automatically restore the most recent session (recommended)
 restore_latest
 

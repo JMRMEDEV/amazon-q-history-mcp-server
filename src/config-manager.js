@@ -15,7 +15,15 @@ export class ConfigManager {
       const content = await fs.readFile(configPath, 'utf8');
       this.config = JSON.parse(content);
     } catch (e) {
-      this.config = { storage_mode: 'server' };
+      this.config = { 
+        storage_mode: 'server',
+        restore_latest: false
+      };
+    }
+    
+    // Set defaults for missing properties
+    if (this.config.restore_latest === undefined) {
+      this.config.restore_latest = false;
     }
     
     // Validate tool permissions

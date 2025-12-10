@@ -19,6 +19,22 @@ export class SessionManager {
     this.backupDir = this.defaultBackupDir;
     this.currentSession = null;
     this.configManager = new ConfigManager();
+    this.presessionMode = false;
+  }
+
+  async initializePresession() {
+    const cwd = process.cwd();
+    await this.configManager.loadConfig(cwd);
+    this.storageDir = this.configManager.getStoragePath(cwd, this.defaultStorageDir);
+    this.backupDir = this.configManager.getBackupPath(cwd, this.defaultBackupDir);
+    this.presessionMode = true;
+    
+    // Check if auto-restore is enabled
+    if (this.configManager.config.restore_latest) {
+      return await this.autoRestoreLatest();
+    }
+    
+    return { message: 'Presession mode active. Use list_sessions, restore_latest, or track_session.' };
   }
 
   async initializeSession(agentName = 'amazon-q') {
@@ -166,6 +182,12 @@ export class SessionManager {
   async getCurrentSession(agentName = null) {
     if (this.currentSession) return this.currentSession;
     
+    // In presession mode, don't auto-create sessions
+    if (this.presessionMode) {
+      throw new Error('No active session. Use track_session to create one or restore_latest to restore.');
+    }
+    
+    // Auto-create session if not in presession mode
     const cwd = process.cwd();
     const normalizedAgent = agentName ? normalizeAgentName(agentName) : null;
     

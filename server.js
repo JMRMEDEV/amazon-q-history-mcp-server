@@ -56,6 +56,14 @@ class AmazonQHistoryServer {
           }
         },
         {
+          name: 'init_presession',
+          description: 'Initialize presession mode for browsing sessions without creating one',
+          inputSchema: {
+            type: 'object',
+            properties: {}
+          }
+        },
+        {
           name: 'log_prompt',
           description: 'Log user prompt and extract goals/requirements',
           inputSchema: {
@@ -227,6 +235,8 @@ class AmazonQHistoryServer {
         const validatedArgs = validateToolInput(name, args, allowedPaths);
         
         switch (name) {
+          case 'init_presession':
+            return await this.handleInitPresession();
           case 'track_session':
             return await this.handleTrackSession(validatedArgs);
           case 'log_prompt':
@@ -270,6 +280,17 @@ class AmazonQHistoryServer {
         };
       }
     });
+  }
+
+  async handleInitPresession() {
+    await logger.init(process.cwd());
+    const result = await this.sessionManager.initializePresession();
+    return {
+      content: [{
+        type: 'text',
+        text: result.message
+      }]
+    };
   }
 
   async handleTrackSession(args) {
@@ -423,6 +444,11 @@ class AmazonQHistoryServer {
   }
 
   async handleRestoreLatest() {
+    // Initialize presession if needed
+    if (!this.sessionManager.currentSession && !this.sessionManager.presessionMode) {
+      await this.sessionManager.initializePresession();
+    }
+    
     const result = await this.sessionManager.autoRestoreLatest();
     return {
       content: [{
@@ -433,6 +459,11 @@ class AmazonQHistoryServer {
   }
 
   async handleListSessions() {
+    // Initialize presession if needed
+    if (!this.sessionManager.currentSession && !this.sessionManager.presessionMode) {
+      await this.sessionManager.initializePresession();
+    }
+    
     const result = await this.sessionManager.listAllSessions();
     return {
       content: [{
