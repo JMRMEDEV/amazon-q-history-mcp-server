@@ -2,11 +2,33 @@
 
 ## Overview
 
-The session management system now supports graceful session exit and selective session switching, allowing you to work with multiple sessions and switch between them seamlessly.
+The session management system supports graceful session exit, selective session switching, and automatic restoration of the most recent session for optimal user experience.
 
 ## Features
 
-### 1. Close Session (`close_session`)
+### 1. Restore Latest Session (`restore_latest`)
+
+**NEW**: Automatically restores the most recent session with a single command.
+
+**Usage:**
+```javascript
+await restore_latest()
+```
+
+**Behavior:**
+- Finds the most recent session automatically
+- Attempts to switch to it if in active storage
+- Falls back to restoring from backup if needed
+- Returns confirmation with session details
+
+**Example Output:**
+```
+Restored latest session: 2025-12-09T15-30-45_kiro-cli_abc123
+```
+
+**Best for:** When user says "restore latest conversation" or similar requests.
+
+### 2. Close Session (`close_session`)
 
 Gracefully closes the current active session without deleting any data.
 

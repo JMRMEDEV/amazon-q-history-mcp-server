@@ -576,6 +576,38 @@ export class SessionManager {
     }
   }
 
+  async autoRestoreLatest() {
+    const cwd = process.cwd();
+    await this.configManager.loadConfig(cwd);
+    this.storageDir = this.configManager.getStoragePath(cwd, this.defaultStorageDir);
+    this.backupDir = this.configManager.getBackupPath(cwd, this.defaultBackupDir);
+    
+    // Find most recent session
+    const sessions = await this.listAllSessions();
+    const sessionLines = sessions.message.split('\n').filter(line => line.startsWith('- '));
+    
+    if (sessionLines.length === 0) {
+      return { message: 'No sessions found. Use track_session to create a new one.' };
+    }
+    
+    // Extract first session ID (most recent)
+    const firstSession = sessionLines[0];
+    const sessionId = firstSession.split(' ')[1];
+    
+    // Try to switch to it
+    const result = await this.switchSession(sessionId);
+    if (result.message.includes('not found')) {
+      // Try restore from backup
+      const restoreResult = await this.restoreFromBackup(sessionId);
+      if (restoreResult.message.includes('Successfully restored')) {
+        return await this.switchSession(sessionId);
+      }
+      return restoreResult;
+    }
+    
+    return { message: `Restored latest session: ${sessionId}` };
+  }
+
   async restoreFromBackup(sessionId, options = {}) {
     try {
       // List available sessions if no session ID provided

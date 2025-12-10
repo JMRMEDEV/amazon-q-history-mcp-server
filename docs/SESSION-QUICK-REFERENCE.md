@@ -2,6 +2,12 @@
 
 ## Commands
 
+### Restore Latest Session (Recommended)
+```javascript
+restore_latest()
+```
+Automatically finds and restores the most recent session. Best for "restore conversation" requests.
+
 ### Close Current Session
 ```javascript
 close_session()
@@ -34,6 +40,12 @@ Restores a session from backup storage.
 
 ## Common Workflows
 
+### Restore Previous Work (Simplest)
+```javascript
+// User says "restore latest conversation"
+restore_latest()
+```
+
 ### Switch Projects
 ```javascript
 // Close current work
@@ -60,10 +72,11 @@ close_session()
 
 ### Start of Day
 ```javascript
-// List yesterday's sessions
-list_sessions()
+# Simple: restore latest work
+restore_latest()
 
-// Resume where you left off
+# Or: choose specific session
+list_sessions()
 switch_session({ session_id: "YESTERDAY_SESSION_ID" })
 ```
 

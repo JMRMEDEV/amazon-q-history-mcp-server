@@ -120,6 +120,14 @@ class AmazonQHistoryServer {
           }
         },
         {
+          name: 'restore_latest',
+          description: 'Automatically restore the most recent session',
+          inputSchema: {
+            type: 'object',
+            properties: {}
+          }
+        },
+        {
           name: 'list_sessions',
           description: 'List all available sessions (active and backup)',
           inputSchema: {
@@ -235,6 +243,8 @@ class AmazonQHistoryServer {
             return await this.handleInitProjectStorage();
           case 'restore_backup':
             return await this.handleRestoreBackup(validatedArgs);
+          case 'restore_latest':
+            return await this.handleRestoreLatest();
           case 'list_sessions':
             return await this.handleListSessions();
           case 'close_session':
@@ -404,6 +414,16 @@ class AmazonQHistoryServer {
 
   async handleRestoreBackup(args) {
     const result = await this.sessionManager.restoreFromBackup(args.session_id, { force: args.force });
+    return {
+      content: [{
+        type: 'text',
+        text: result.message
+      }]
+    };
+  }
+
+  async handleRestoreLatest() {
+    const result = await this.sessionManager.autoRestoreLatest();
     return {
       content: [{
         type: 'text',

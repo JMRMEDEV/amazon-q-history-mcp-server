@@ -342,6 +342,7 @@ All tools that can be controlled via config:
 - `mark_criteria_complete` - Mark goals complete
 - `clear_session_history` - Delete history
 - `restore_backup` - Restore sessions
+- `restore_latest` - Auto-restore most recent session
 - `init_project_storage` - Initialize project mode
 - `process_hook` - Hook processing
 - `list_sessions` - List all sessions
@@ -353,6 +354,9 @@ All tools that can be controlled via config:
 ### Session Management
 
 ```bash
+# Automatically restore the most recent session (recommended)
+restore_latest
+
 # Close current session gracefully
 close_session
 
