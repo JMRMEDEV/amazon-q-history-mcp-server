@@ -523,6 +523,59 @@ export class SessionManager {
     this.currentSession = null;
   }
 
+  async closeSession() {
+    if (!this.currentSession) {
+      return { message: 'No active session to close' };
+    }
+    
+    const sessionId = this.currentSession.id;
+    logger.info('Closing session', { session_id: sessionId });
+    
+    // Save final state
+    await this.saveSessionMetadata();
+    
+    // Clear current session
+    this.currentSession = null;
+    
+    return { 
+      message: `Session ${sessionId} closed gracefully.\nUse list_sessions to view available sessions.`
+    };
+  }
+
+  async switchSession(sessionId) {
+    // Close current session if exists
+    if (this.currentSession) {
+      await this.closeSession();
+    }
+    
+    // Load the target session
+    const storagePath = join(this.storageDir, sessionId);
+    try {
+      await fs.access(storagePath);
+    } catch (e) {
+      return { message: `Session ${sessionId} not found. Use restore_backup to restore from backup first.` };
+    }
+    
+    // Load session metadata
+    const metadataPath = join(storagePath, 'metadata.json');
+    try {
+      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+      
+      this.currentSession = {
+        ...metadata,
+        storage_path: storagePath,
+        backup_path: join(this.backupDir, sessionId)
+      };
+      
+      logger.info('Switched to session', { session_id: sessionId });
+      return { 
+        message: `Switched to session ${sessionId}\nAgent: ${metadata.agent_display_name}\nDirectory: ${metadata.directory}`
+      };
+    } catch (e) {
+      return { message: `Failed to load session metadata: ${e.message}` };
+    }
+  }
+
   async restoreFromBackup(sessionId, options = {}) {
     try {
       // List available sessions if no session ID provided

@@ -5,6 +5,7 @@ Track Amazon Q sessions, maintain context across crashes, and monitor progress t
 ## Features
 
 - **Session Tracking**: Unique session IDs with agent name and timestamp
+- **Session Management**: Gracefully close and switch between multiple sessions
 - **Context Preservation**: Extract and store goals, requirements, and constraints
 - **Progress Monitoring**: Track actions and success criteria
 - **Crash Recovery**: Backup to `/tmp` with restoration capabilities
@@ -343,8 +344,26 @@ All tools that can be controlled via config:
 - `restore_backup` - Restore sessions
 - `init_project_storage` - Initialize project mode
 - `process_hook` - Hook processing
+- `list_sessions` - List all sessions
+- `close_session` - Gracefully close current session
+- `switch_session` - Switch to a different session
 
 ## Usage
+
+### Session Management
+
+```bash
+# Close current session gracefully
+close_session
+
+# List all available sessions
+list_sessions
+
+# Switch to a different session
+switch_session --session_id "2025-12-09T15-30-45_kiro-cli_abc123"
+```
+
+See [Session Management Documentation](docs/SESSION-MANAGEMENT.md) for detailed workflows and examples.
 
 ### Initialize Session
 ```bash

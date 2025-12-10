@@ -128,6 +128,25 @@ class AmazonQHistoryServer {
           }
         },
         {
+          name: 'close_session',
+          description: 'Gracefully close the current session',
+          inputSchema: {
+            type: 'object',
+            properties: {}
+          }
+        },
+        {
+          name: 'switch_session',
+          description: 'Switch to a different active session',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              session_id: { type: 'string', description: 'Session ID to switch to' }
+            },
+            required: ['session_id']
+          }
+        },
+        {
           name: 'log_git_commits',
           description: 'Import git commit history into session worklog (optional)',
           inputSchema: {
@@ -218,6 +237,10 @@ class AmazonQHistoryServer {
             return await this.handleRestoreBackup(validatedArgs);
           case 'list_sessions':
             return await this.handleListSessions();
+          case 'close_session':
+            return await this.handleCloseSession();
+          case 'switch_session':
+            return await this.handleSwitchSession(validatedArgs);
           case 'log_git_commits':
             return await this.handleLogGitCommits(validatedArgs);
           case 'process_hook':
@@ -391,6 +414,26 @@ class AmazonQHistoryServer {
 
   async handleListSessions() {
     const result = await this.sessionManager.listAllSessions();
+    return {
+      content: [{
+        type: 'text',
+        text: result.message
+      }]
+    };
+  }
+
+  async handleCloseSession() {
+    const result = await this.sessionManager.closeSession();
+    return {
+      content: [{
+        type: 'text',
+        text: result.message
+      }]
+    };
+  }
+
+  async handleSwitchSession(args) {
+    const result = await this.sessionManager.switchSession(args.session_id);
     return {
       content: [{
         type: 'text',
