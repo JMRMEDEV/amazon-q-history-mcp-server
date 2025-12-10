@@ -31,7 +31,12 @@ export class SessionManager {
     
     // Check if auto-restore is enabled
     if (this.configManager.config.restore_latest) {
-      return await this.autoRestoreLatest();
+      const result = await this.autoRestoreLatest();
+      if (result.message.includes('Restored latest session')) {
+        this.presessionMode = false; // Exit presession mode since we have active session
+        return { message: `Auto-restored: ${result.message}. Session is now active - no need to call track_session.` };
+      }
+      return result;
     }
     
     return { message: 'Presession mode active. Use list_sessions, restore_latest, or track_session.' };
