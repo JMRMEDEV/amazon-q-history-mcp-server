@@ -60,7 +60,9 @@ class AmazonQHistoryServer {
           description: 'Initialize presession mode for browsing sessions without creating one',
           inputSchema: {
             type: 'object',
-            properties: {}
+            properties: {
+              agent_name: { type: 'string', description: 'Agent name to filter session restore by' }
+            }
           }
         },
         {
@@ -236,7 +238,7 @@ class AmazonQHistoryServer {
         
         switch (name) {
           case 'init_presession':
-            return await this.handleInitPresession();
+            return await this.handleInitPresession(validatedArgs);
           case 'track_session':
             return await this.handleTrackSession(validatedArgs);
           case 'log_prompt':
@@ -282,9 +284,9 @@ class AmazonQHistoryServer {
     });
   }
 
-  async handleInitPresession() {
+  async handleInitPresession(args = {}) {
     await logger.init(process.cwd());
-    const result = await this.sessionManager.initializePresession();
+    const result = await this.sessionManager.initializePresession(args.agent_name);
     return {
       content: [{
         type: 'text',

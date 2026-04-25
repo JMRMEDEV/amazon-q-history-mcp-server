@@ -70,6 +70,12 @@ export function validateToolInput(name, args, allowedPaths = [process.cwd()]) {
         throw new Error('Agent name too long (max 100 characters)');
       }
       break;
+      
+    case 'init_presession':
+      if (args.agent_name && args.agent_name.length > 100) {
+        throw new Error('Agent name too long (max 100 characters)');
+      }
+      break;
   }
   
   return args;

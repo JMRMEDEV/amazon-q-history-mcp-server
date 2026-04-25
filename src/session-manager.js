@@ -22,7 +22,7 @@ export class SessionManager {
     this.presessionMode = false;
   }
 
-  async initializePresession() {
+  async initializePresession(agentName) {
     const cwd = process.cwd();
     await this.configManager.loadConfig(cwd);
     this.storageDir = this.configManager.getStoragePath(cwd, this.defaultStorageDir);
@@ -31,7 +31,7 @@ export class SessionManager {
     
     // Check if auto-restore is enabled
     if (this.configManager.config.restore_latest) {
-      const result = await this.autoRestoreLatest();
+      const result = await this.autoRestoreLatest(agentName);
       if (result.message.includes('Restored latest session')) {
         this.presessionMode = false; // Exit presession mode since we have active session
         return { message: `Auto-restored: ${result.message}. Session is now active - no need to call track_session.` };
@@ -603,37 +603,51 @@ export class SessionManager {
     }
   }
 
-  async autoRestoreLatest() {
+  async autoRestoreLatest(agentName) {
     const cwd = process.cwd();
     await this.configManager.loadConfig(cwd);
     this.storageDir = this.configManager.getStoragePath(cwd, this.defaultStorageDir);
     this.backupDir = this.configManager.getBackupPath(cwd, this.defaultBackupDir);
     
-    // Find most recent session
-    const sessions = await this.listAllSessions();
-    const sessionLines = sessions.message.split('\n').filter(line => line.startsWith('- '));
+    const normalizedAgent = agentName ? normalizeAgentName(agentName) : null;
     
-    if (sessionLines.length === 0) {
+    // Find most recent session, optionally filtered by agent
+    try {
+      const sessionIds = await fs.readdir(this.storageDir);
+      const candidates = [];
+      
+      for (const id of sessionIds) {
+        const metadataPath = join(this.storageDir, id, 'metadata.json');
+        try {
+          const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
+          if (!normalizedAgent || metadata.agent_name === normalizedAgent) {
+            candidates.push({ id, created_at: metadata.created_at });
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+      
+      if (candidates.length === 0) {
+        return { message: 'No sessions found. Use track_session to create a new one.' };
+      }
+      
+      candidates.sort((a, b) => b.id.localeCompare(a.id));
+      const sessionId = candidates[0].id;
+      
+      const result = await this.switchSession(sessionId);
+      if (result.message.includes('not found')) {
+        const restoreResult = await this.restoreFromBackup(sessionId);
+        if (restoreResult.message.includes('Successfully restored')) {
+          return await this.switchSession(sessionId);
+        }
+        return restoreResult;
+      }
+      
+      return { message: `Restored latest session: ${sessionId}` };
+    } catch (e) {
       return { message: 'No sessions found. Use track_session to create a new one.' };
     }
-    
-    // Extract first session ID (most recent) - handle different formats
-    const firstSession = sessionLines[0];
-    // Format: "- 2025-12-09T05-41-23_agent_hash" or "- 2025-12-09T05-41-23_agent_hash\n  description"
-    const sessionId = firstSession.replace(/^- /, '').split('\n')[0].trim();
-    
-    // Try to switch to it
-    const result = await this.switchSession(sessionId);
-    if (result.message.includes('not found')) {
-      // Try restore from backup
-      const restoreResult = await this.restoreFromBackup(sessionId);
-      if (restoreResult.message.includes('Successfully restored')) {
-        return await this.switchSession(sessionId);
-      }
-      return restoreResult;
-    }
-    
-    return { message: `Restored latest session: ${sessionId}` };
   }
 
   async restoreFromBackup(sessionId, options = {}) {
