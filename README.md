@@ -1,3 +1,42 @@
+> # ⚠️ DEPRECATED — No longer maintained
+>
+> **This project is deprecated and no longer maintained.** It has been superseded
+> by **[kiro-history](https://github.com/JMRMEDEV/kiro-history)**.
+>
+> ## Why
+>
+> This server made the agent **re-log its own prompts and actions**
+> (`log_prompt`, `log_action`, `process_hook`) into a parallel worklog. That was
+> necessary for Amazon Q, but it duplicates data the CLI already persists and
+> costs the model extra turns/credits to narrate itself.
+>
+> Kiro CLI already writes each session's full transcript + sidecar
+> (`~/.kiro/sessions/cli/<id>.jsonl` / `.json`). **kiro-history** reads those
+> files as the source of truth — it indexes, summarizes, and restores sessions
+> **without any self-logging** — and ships as a single zero-dependency Go binary
+> that runs as both a CLI and an MCP server. It keeps the useful capabilities
+> from this project (session indexing, cross-session restore, `restore_latest`,
+> TTL / prefer-recent, project-vs-server storage, tool allow/deny, backup &
+> restore) and drops the obsolete self-logging tools.
+>
+> ## Migrate
+>
+> Replace this server in your agent/MCP config with kiro-history:
+>
+> ```jsonc
+> {
+>   "mcpServers": {
+>     "kiro-history": { "command": "kiro-history", "args": ["mcp"] }
+>   }
+> }
+> ```
+>
+> See **https://github.com/JMRMEDEV/kiro-history** for install and usage.
+>
+> ---
+>
+> _The original README follows, for historical reference._
+
 # Amazon Q History MCP Server
 
 Track Amazon Q sessions, maintain context across crashes, and monitor progress toward goals.
